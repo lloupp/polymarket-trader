@@ -5,6 +5,7 @@
 import { formatUSD, formatPercent, formatPrice } from './utils.js';
 import { fetchMarkets, refreshPrices, clearCache } from './api.js';
 import { init as initWallet, getBalance, getWallet, buy as walletBuy, sell as walletSell, reset as walletReset, getPositions, getPosition, getTrades } from './wallet.js';
+import { computePortfolioSummary, getAllocationData, drawAllocationPie, renderAllocationLegend, renderPositionCards } from './portfolio.js';
 
 // ===== Configuração =====
 const AUTO_REFRESH_MS = 60_000;  // auto-refresh a cada 60s enquanto a aba está aberta
@@ -616,97 +617,56 @@ function bindTradeModals() {
   document.getElementById('sell-shares-input')?.addEventListener('input', updateSellPreview);
 }
 
-// ===== Portfolio (Fase 4 — básico; P&L completo na Fase 5) =====
+// ===== Portfolio (Fase 5 — P&L completo, gráfico de pizza, alocação) =====
 function renderPortfolio() {
   const positions = getPositions();
   const list = document.getElementById('positions-list');
   const emptyMsg = document.getElementById('portfolio-empty');
+  const chartSection = document.getElementById('port-chart-section');
   if (!list) return;
 
+  // Calcula métricas agregadas via portfolio.js
+  const summary = computePortfolioSummary(state.markets);
+
   // Stat cards
-  const openCount = positions.length;
-  const invested = positions.reduce((sum, p) => sum + p.costBasis, 0);
-
-  // Valor atual = shares * preço atual (do mercado em state.markets)
-  let currentValue = 0;
-  for (const p of positions) {
-    const market = state.markets.find(m => String(m.id) === String(p.marketId));
-    const outcomeObj = market?.outcomes.find(o => o.name === p.outcome);
-    const price = outcomeObj?.price ?? p.avgPrice;  // fallback: preço médio
-    currentValue += p.shares * price;
-  }
-  const unrealizedPnl = currentValue - invested;
-
-  document.getElementById('port-open-positions').textContent = openCount;
-  document.getElementById('port-invested').textContent = formatUSD(invested);
-  document.getElementById('port-current-value').textContent = formatUSD(currentValue);
+  document.getElementById('port-open-positions').textContent = summary.openCount;
+  document.getElementById('port-invested').textContent = formatUSD(summary.invested);
+  document.getElementById('port-current-value').textContent = formatUSD(summary.currentValue);
 
   const pnlEl = document.getElementById('port-unrealized-pnl');
-  pnlEl.textContent = formatUSD(unrealizedPnl);
+  pnlEl.textContent = `${formatUSD(summary.unrealizedPnl)} (${formatPercent(summary.unrealizedPnlPercent)})`;
   pnlEl.classList.remove('pnl-positive', 'pnl-negative');
-  if (unrealizedPnl > 0) pnlEl.classList.add('pnl-positive');
-  else if (unrealizedPnl < 0) pnlEl.classList.add('pnl-negative');
+  if (summary.unrealizedPnl > 0) pnlEl.classList.add('pnl-positive');
+  else if (summary.unrealizedPnl < 0) pnlEl.classList.add('pnl-negative');
 
+  const equityEl = document.getElementById('port-total-equity');
+  if (equityEl) equityEl.textContent = formatUSD(summary.totalEquity);
+
+  // Estado vazio
   if (positions.length === 0) {
     list.innerHTML = '';
     if (emptyMsg) emptyMsg.style.display = 'block';
+    if (chartSection) chartSection.style.display = 'none';
     return;
   }
   if (emptyMsg) emptyMsg.style.display = 'none';
+  if (chartSection) chartSection.style.display = 'flex';
 
-  list.innerHTML = positions.map(p => {
-    const market = state.markets.find(m => String(m.id) === String(p.marketId));
-    const outcomeObj = market?.outcomes.find(o => o.name === p.outcome);
-    const currentPrice = outcomeObj?.price ?? p.avgPrice;
-    const marketValue = p.shares * currentPrice;
-    const pnl = (currentPrice - p.avgPrice) * p.shares;
-    const pnlPercent = p.avgPrice > 0 ? ((currentPrice - p.avgPrice) / p.avgPrice) * 100 : 0;
-
-    return `
-      <div class="position-card" data-market-id="${p.marketId}" data-outcome="${p.outcome}">
-        <div class="position-card-header">
-          <p class="position-card-question">${escapeHtml(p.marketQuestion)}</p>
-          <span class="position-outcome-badge ${p.outcome === 'Yes' ? 'yes' : 'no'}">${p.outcome}</span>
-        </div>
-        <div class="position-card-stats">
-          <div class="position-stat">
-            <span class="position-stat-label">Shares</span>
-            <span class="position-stat-value">${p.shares}</span>
-          </div>
-          <div class="position-stat">
-            <span class="position-stat-label">Preço Médio</span>
-            <span class="position-stat-value">${formatPrice(p.avgPrice)}</span>
-          </div>
-          <div class="position-stat">
-            <span class="position-stat-label">Preço Atual</span>
-            <span class="position-stat-value">${formatPrice(currentPrice)}</span>
-          </div>
-          <div class="position-stat">
-            <span class="position-stat-label">Valor Atual</span>
-            <span class="position-stat-value">${formatUSD(marketValue)}</span>
-          </div>
-          <div class="position-stat">
-            <span class="position-stat-label">P&L</span>
-            <span class="position-stat-value ${pnl > 0 ? 'pnl-positive' : pnl < 0 ? 'pnl-negative' : ''}">
-              ${formatUSD(pnl)} (${formatPercent(pnlPercent)})
-            </span>
-          </div>
-        </div>
-        <div class="position-card-actions">
-          <button class="position-sell-btn" data-market-id="${p.marketId}" data-outcome="${p.outcome}">
-            Vender
-          </button>
-        </div>
-      </div>
-    `;
-  }).join('');
-
+  // Renderiza as position cards via portfolio.js
+  list.innerHTML = renderPositionCards(state.markets);
   // Bind sell buttons nas position cards
   list.querySelectorAll('.position-sell-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       openSellModal(btn.dataset.marketId, btn.dataset.outcome);
     });
   });
+
+  // Gráfico de pizza: alocação da carteira
+  const allocData = getAllocationData(state.markets);
+  const canvas = document.getElementById('port-allocation-canvas');
+  const legend = document.getElementById('port-allocation-legend');
+  drawAllocationPie(canvas, allocData, summary.currentValue);
+  renderAllocationLegend(legend, allocData);
 }
 
 // ===== Histórico (Fase 4 — básico; completo na Fase 6) =====

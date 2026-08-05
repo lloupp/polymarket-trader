@@ -79,9 +79,22 @@
             <span class="stat-label">P&L Não Realizado</span>
             <span class="stat-value" id="port-unrealized-pnl">$0.00</span>
           </div>
+          <div class="stat-card equity">
+            <span class="stat-label">Patrimônio Total</span>
+            <span class="stat-value" id="port-total-equity">$0.00</span>
+          </div>
         </div>
+
+        <!-- Gráfico de pizza: alocação da carteira (Fase 5) -->
+        <div class="portfolio-chart-section" id="port-chart-section">
+          <div class="portfolio-chart-wrapper">
+            <canvas class="portfolio-chart-canvas" id="port-allocation-canvas" width="280" height="280"></canvas>
+          </div>
+          <div class="portfolio-legend" id="port-allocation-legend"></div>
+        </div>
+
         <div id="positions-list" class="positions-list">
-          <!-- Posições renderizadas via JS (Fase 4) — P&L completo na Fase 5 -->
+          <!-- Posições renderizadas via JS -->
         </div>
         <div id="portfolio-empty" class="empty-msg" style="display:none;">
           Você não tem posições abertas. Compre shares na aba Mercados.
