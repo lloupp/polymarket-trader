@@ -3,7 +3,7 @@
 ## Skill de referência: `polymarket-trader-builder`
 TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cron).
 
-## Status: Fase 4 concluída — próxima é Fase 5 (Portfolio e P&L)
+## Status: Fase 5 concluída — próxima é Fase 6 (Histórico e Performance)
 
 ## Fases
 
@@ -53,12 +53,19 @@ TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cr
 - ✅ Persistência localStorage
 - ✅ Commit: `feat: carteira e comprar/vender`
 
-### Fase 5 — Portfolio e P&L [PENDENTE]
-- Posições abertas com P&L em tempo real
-- Cálculo: preço médio, custo, valor atual, P&L, P&L %
-- Dashboard: saldo, P&L total, alocação
-- Gráfico de pizza (Canvas): alocação da carteira
-- Commit: `feat: portfolio e P&L`
+### Fase 5 — Portfolio e P&L [CONCLUÍDO — 2026-08-05]
+- ✅ Criado js/portfolio.js: funções reutilizáveis (computePositionMetrics, computePortfolioSummary, getAllocationData, drawAllocationPie, renderAllocationLegend, renderPositionCards)
+- ✅ Posições abertas com P&L em tempo real (preço médio, custo, valor atual, P&L, P&L %)
+- ✅ Dashboard: saldo, P&L total, valor investido, valor atual, patrimônio total
+- ✅ Gráfico de pizza (donut Canvas): alocação da carteira por mercado
+- ✅ Legenda do gráfico com cores, valores e percentuais
+- ✅ Barra de alocação por posição (% do portfólio em cada card)
+- ✅ Agrupamento de posições por marketId (Yes/No do mesmo mercado juntos no gráfico)
+- ✅ Top 10 fatias + "Outros" quando > 11 mercados
+- ✅ DPI-aware canvas rendering (telas HiDPI)
+- ✅ app.js refatorado para delegar cálculos de portfolio a portfolio.js
+- ✅ Testes lógicos: P&L individual, agregado, multi-posição, alocação multi-mercado
+- ✅ Commit: `feat: portfolio e P&L` (hash `a537b52`)
 
 ### Fase 6 — Histórico e Performance [PENDENTE]
 - Log de trades com filtros e exportação CSV
