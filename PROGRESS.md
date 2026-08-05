@@ -62,6 +62,17 @@ TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cr
 - Configurar Pages, verificar, atualizar README
 - Commit: `deploy: GitHub Pages`
 
+### Fase 9 — Motor de Negociação Autônoma (Auto-Trader) [PENDENTE]
+- Implementar js/bot.js: ciclo de avaliação via setInterval
+- Estratégias: momentum, reversão à média, comprar barato amplo, aleatória
+- Gestão de posições: take-profit e stop-loss automáticos
+- Painel de controle: ligar/desligar bot, escolher estratégia, ajustar limites (porTrade, maxOpenPositions, profitTarget, stopLoss, intervalMs)
+- Log de ações do bot (pm_bot_log) com timestamp
+- Histórico de preços por mercado (pm_market_history) para estratégia momentum
+- Integração com wallet.js (comprar/vender)
+- Testes completos
+- Commit: `feat: motor de negociação autônoma`
+
 ## Regras do cron
 1. Ler PROGRESS.md
 2. Implementar fase completa
