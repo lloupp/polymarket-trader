@@ -3,7 +3,7 @@
 ## Skill de referência: `polymarket-trader-builder`
 TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cron).
 
-## Status: Fase 2 concluída — próxima é Fase 3 (API e Mercados)
+## Status: Fase 3 concluída — próxima é Fase 4 (Carteira e Comprar/Vender)
 
 ## Fases
 
@@ -29,12 +29,21 @@ TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cr
 - ✅ Carteira init em localStorage (pm_wallet, $1,000 default)
 - ✅ Commit: `feat: layout e dashboard`
 
-### Fase 3 — API e Mercados [PENDENTE]
-- Implementar js/api.js: buscar mercados do Polymarket (Gamma API)
-- Fallback: sample-markets.json offline
-- Renderizar lista com busca e filtro por categoria
-- Auto-refresh de preços
-- Commit: `feat: API e mercados`
+### Fase 3 — API e Mercados [CONCLUÍDO — 2026-08-05]
+- ✅ Implementar js/api.js: buscar mercados do Polymarket (Gamma API `/events`)
+- ✅ Endpoint primário: `GET /events?limit=50&active=true&closed=false&order=volume&ascending=false`
+- ✅ Tratamento de `outcomes`/`outcomePrices` como JSON strings (pegadinha crítica)
+- ✅ Categorização client-side por tags dentro do evento (api mapeia ~120 slugs → 8 categorias)
+- ✅ Fallback: sample-markets.json offline quando API falha
+- ✅ Cache em memória de 60s (não localStorage — economia de quota)
+- ✅ `refreshPrices()` atualiza só preços sem re-renderizar cards (preserva DOM/bindings)
+- ✅ `clearCache()` para forçar re-fetch no reset da carteira
+- ✅ Auto-refresh a cada 60s via setInterval (só roda se aba Mercados visível e !document.hidden)
+- ✅ Indicador de fonte: 🟢 Gamma API / 🟡 Dados de exemplo / 🟠 Cache / 🔴 Falha
+- ✅ Botão "⟳ Atualizar preços" manual na toolbar de mercados
+- ✅ Testes completos: 1462/1462 mercados reais mapeados sem nulls
+- ✅ Testes de fallback, cache em memória, clearCache, categorização, JSON strings
+- ✅ Commit: `feat: API e mercados`
 
 ### Fase 4 — Carteira e Comprar/Vender [PENDENTE]
 - Implementar js/wallet.js: init, getBalance, buy, sell, reset

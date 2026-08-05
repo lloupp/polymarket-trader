@@ -207,6 +207,40 @@ body {
 
 .filter-select { cursor: pointer; }
 
+/* ===== Refresh button & indicator ===== */
+.btn-refresh {
+  color: var(--blue);
+  border-color: var(--blue);
+  background: rgba(59, 130, 246, 0.1);
+  white-space: nowrap;
+}
+.btn-refresh:hover {
+  background: rgba(59, 130, 246, 0.2);
+}
+.btn-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.refresh-indicator {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.refresh-indicator .ri-source {
+  font-weight: 600;
+}
+.refresh-indicator .ri-error {
+  color: var(--red);
+}
+.refresh-indicator .ri-time {
+  opacity: 0.8;
+}
+
 /* ===== Market Cards ===== */
 .markets-list {
   display: grid;

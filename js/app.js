@@ -1,15 +1,23 @@
 // app.js — Lógica principal do Polymarket Trader
-// Fase 2: Layout, Dashboard, Tabs, Cards de Mercado, Header com saldo/P&L
+// Fase 3: integração com Gamma API, refresh automático de preços,
+//          indicador de fonte/ última atualização, botão de refresh manual.
 
 import { formatUSD, formatPercent, saveToStorage, loadFromStorage } from './utils.js';
+import { fetchMarkets, refreshPrices, clearCache } from './api.js';
+
+// ===== Configuração =====
+const AUTO_REFRESH_MS = 60_000;  // auto-refresh a cada 60s enquanto a aba está aberta
 
 // ===== Estado global da app =====
 const state = {
-  markets: [],           // lista de mercados carregados
+  markets: [],           // lista de mercados carregados (schema do app)
   filteredMarkets: [],  // mercados após busca/filtro
   activeTab: 'markets',
   searchQuery: '',
   categoryFilter: '',
+  dataSource: 'sample', // 'api' | 'sample' | 'cache-stale'
+  lastUpdate: null,     // Date do último refresh bem-sucedido
+  autoRefreshHandle: null,  // setInterval id
 };
 
 // ===== Init =====
@@ -20,6 +28,40 @@ async function init() {
   await loadMarkets();
   renderHeader();
   renderMarkets();
+  startAutoRefresh();
+}
+
+// ===== Auto-refresh =====
+function startAutoRefresh() {
+  stopAutoRefresh();
+  state.autoRefreshHandle = setInterval(async () => {
+    // Só atualiza se a aba "Mercados" estiver visível (economiza requests)
+    if (state.activeTab !== 'markets') return;
+    if (document.hidden) return;
+    console.log('app.js: auto-refresh tick');
+    await updatePrices();
+  }, AUTO_REFRESH_MS);
+}
+
+function stopAutoRefresh() {
+  if (state.autoRefreshHandle) {
+    clearInterval(state.autoRefreshHandle);
+    state.autoRefreshHandle = null;
+  }
+}
+
+// ===== Atualizar apenas preços (sem recarregar toda a lista) =====
+async function updatePrices() {
+  const updated = await refreshPrices();
+  if (updated) {
+    state.lastUpdate = new Date();
+    state.dataSource = 'api';
+    updateRefreshIndicator();
+    renderMarketsPricesOnly();  // atualiza só os preços nos cards
+    showToast('Preços atualizados', 'success');
+  } else {
+    updateRefreshIndicator(true);
+  }
 }
 
 // ===== Carteira (estado mínimo para Fase 2) =====
@@ -56,6 +98,18 @@ function bindEvents() {
     });
   }
 
+  // Botão de refresh manual de preços
+  const btnRefresh = document.getElementById('btn-refresh-prices');
+  if (btnRefresh) {
+    btnRefresh.addEventListener('click', async () => {
+      btnRefresh.disabled = true;
+      btnRefresh.textContent = '⟳ Atualizando...';
+      await updatePrices();
+      btnRefresh.disabled = false;
+      btnRefresh.textContent = '⟳ Atualizar preços';
+    });
+  }
+
   // Botão Reset
   const btnReset = document.getElementById('btn-reset');
   if (btnReset) {
@@ -78,9 +132,10 @@ function bindEvents() {
     resetConfirm.addEventListener('click', () => {
       const initial = { balance: 1000, initialBalance: 1000, positions: [], trades: [] };
       saveToStorage('wallet', initial);
+      clearCache();  // força re-fetch da API na próxima renderização
       document.getElementById('modal-reset').style.display = 'none';
       renderHeader();
-      renderMarkets();
+      loadMarkets().then(() => renderMarkets());  // recarrega mercados
       showToast('Carteira reiniciada! Saldo: $1,000.00', 'info');
     });
   }
@@ -101,17 +156,35 @@ function switchTab(tabName) {
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === `tab-${tabName}`));
 }
 
-// ===== Carregar mercados (Fase 2: sample local; Fase 3 trocará por API) =====
+// ===== Carregar mercados (Fase 3: Gamma API com fallback) =====
 async function loadMarkets() {
   const loading = document.getElementById('markets-loading');
   try {
     if (loading) loading.style.display = 'block';
-    // Fase 2: usa sample-markets.json (fallback offline)
-    // Fase 3 substituirá por fetch à Gamma API
-    const resp = await fetch('data/sample-markets.json');
-    if (!resp.ok) throw new Error('Erro ao carregar mercados');
-    state.markets = await resp.json();
+    const markets = await fetchMarkets({ limit: 50 });
+    state.markets = markets;
     state.filteredMarkets = [...state.markets];
+    state.lastUpdate = new Date();
+
+    // Determina a fonte dos dados para o indicador
+    // (api.js loga quando usa cache stale ou sample)
+    if (markets.length > 0) {
+      // se os IDs baterem com sample-markets.json, é fallback local
+      try {
+        const sampleRes = await fetch('data/sample-markets.json');
+        if (sampleRes.ok) {
+          const sample = await sampleRes.json();
+          const sampleIds = new Set(sample.map(m => String(m.id)));
+          const firstId = String(markets[0]?.id);
+          state.dataSource = sampleIds.has(firstId) ? 'sample' : 'api';
+        } else {
+          state.dataSource = 'api';
+        }
+      } catch {
+        state.dataSource = 'api';
+      }
+    }
+    updateRefreshIndicator();
   } catch (err) {
     console.error('Erro ao carregar mercados:', err);
     state.markets = [];
@@ -120,6 +193,61 @@ async function loadMarkets() {
   } finally {
     if (loading) loading.style.display = 'none';
   }
+}
+
+// ===== Atualizar o indicador de fonte/última atualização =====
+function updateRefreshIndicator(error = false) {
+  const indicator = document.getElementById('refresh-indicator');
+  if (!indicator) return;
+
+  const time = state.lastUpdate
+    ? state.lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    : '—';
+
+  const sourceLabel = {
+    'api': '🟢 Gamma API',
+    'sample': '🟡 Dados de exemplo',
+    'cache-stale': '🟠 Cache (offline)'
+  }[state.dataSource] || '—';
+
+  if (error) {
+    indicator.innerHTML = '<span class="ri-error">🔴 Falha ao atualizar</span>';
+  } else {
+    indicator.innerHTML = `<span class="ri-source">${sourceLabel}</span> <span class="ri-time">atualizado às ${time}</span>`;
+  }
+}
+
+// ===== Atualizar SÓ os preços nos cards existentes (sem re-render) =====
+function renderMarketsPricesOnly() {
+  // Atualiza cada card de mercado com os novos preços via data-market-id
+  const list = document.getElementById('markets-list');
+  if (!list || state.markets.length === 0) return;
+
+  const marketMap = new Map(state.markets.map(m => [String(m.id), m]));
+  list.querySelectorAll('.market-card').forEach(card => {
+    const id = card.dataset.marketId;
+    const m = marketMap.get(id);
+    if (!m) return;
+    const yesOutcome = m.outcomes.find(o => o.name === 'Yes') || m.outcomes[0];
+    const noOutcome = m.outcomes.find(o => o.name === 'No') || m.outcomes[1];
+
+    const yesPrice = card.querySelector('.outcome-btn.yes .outcome-price');
+    const noPrice = card.querySelector('.outcome-btn.no .outcome-price');
+    if (yesPrice) yesPrice.textContent = formatPrice(yesOutcome?.price);
+    if (noPrice) noPrice.textContent = formatPrice(noOutcome?.price);
+
+    // Atualiza meta com volume/liquidez
+    const meta = card.querySelector('.market-meta');
+    if (meta) {
+      const volumeStr = m.volume >= 1_000_000
+        ? '$' + (m.volume / 1_000_000).toFixed(2) + 'M'
+        : m.volume >= 1_000
+          ? '$' + (m.volume / 1_000).toFixed(1) + 'K'
+          : '$' + (m.volume || 0).toFixed(2);
+      meta.innerHTML = `<span>Vol: ${volumeStr}</span><span>Liq: $${(m.liquidity || 0).toFixed(0)}</span>`;
+    }
+  });
+  renderHeader();  // atualiza P&L se houver posições (Fase 5)
 }
 
 // ===== Filtrar mercados =====
