@@ -5,7 +5,11 @@ export function formatCurrency(value) {
 }
 
 export function formatUSD(value) {
-  return '$' + (value || 0).toFixed(2);
+  // Formata com separador de milhares: $1,000.00
+  return '$' + (value || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 }
 
 export function formatPercent(value) {
@@ -32,5 +36,6 @@ export function loadFromStorage(key, fallback = null) {
 }
 
 export function formatPrice(price) {
+  if (price === undefined || price === null) return '—';
   return (price * 100).toFixed(1) + '¢';
 }

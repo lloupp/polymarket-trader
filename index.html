@@ -61,22 +61,30 @@
 
     <!-- Tab: Portfolio -->
     <section id="tab-portfolio" class="tab-content">
-      <div class="portfolio-placeholder">
-        <h2>Portfolio</h2>
-        <p class="text-secondary">As posições aparecerão aqui após a Fase 5 (P&L em tempo real).</p>
-        <div class="portfolio-stats">
+      <div class="portfolio-content">
+        <div class="portfolio-stats-top">
           <div class="stat-card">
             <span class="stat-label">Posições Abertas</span>
-            <span class="stat-value">0</span>
+            <span class="stat-value" id="port-open-positions">0</span>
           </div>
           <div class="stat-card">
             <span class="stat-label">Valor Investido</span>
-            <span class="stat-value">$0.00</span>
+            <span class="stat-value" id="port-invested">$0.00</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Valor Atual</span>
+            <span class="stat-value" id="port-current-value">$0.00</span>
           </div>
           <div class="stat-card">
             <span class="stat-label">P&L Não Realizado</span>
-            <span class="stat-value">$0.00</span>
+            <span class="stat-value" id="port-unrealized-pnl">$0.00</span>
           </div>
+        </div>
+        <div id="positions-list" class="positions-list">
+          <!-- Posições renderizadas via JS (Fase 4) — P&L completo na Fase 5 -->
+        </div>
+        <div id="portfolio-empty" class="empty-msg" style="display:none;">
+          Você não tem posições abertas. Compre shares na aba Mercados.
         </div>
       </div>
     </section>
@@ -107,6 +115,86 @@
         <div class="modal-actions">
           <button class="btn btn-cancel" id="reset-cancel">Cancelar</button>
           <button class="btn btn-danger" id="reset-confirm">Sim, Reiniciar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Compra -->
+    <div id="modal-buy" class="modal-overlay" style="display:none;">
+      <div class="modal trade-modal">
+        <h3>Comprar Shares</h3>
+        <div class="trade-modal-header">
+          <p class="trade-market-question" id="buy-market-question">—</p>
+          <span class="trade-position-tag" id="buy-position-tag" style="display:none;"></span>
+        </div>
+        <div class="trade-form">
+          <div class="trade-form-row">
+            <label class="trade-label">Outcome</label>
+            <span class="trade-outcome-display" id="buy-outcome-display">—</span>
+          </div>
+          <div class="trade-form-row">
+            <label class="trade-label">Preço</label>
+            <span class="trade-price-display" id="buy-price-display">—</span>
+          </div>
+          <div class="trade-form-row">
+            <label class="trade-label" for="buy-shares-input">Quantidade</label>
+            <input type="number" id="buy-shares-input" class="trade-input" min="1" step="1" value="10">
+          </div>
+          <div class="trade-form-row">
+            <label class="trade-label">Custo Total</label>
+            <span class="trade-cost-display" id="buy-cost-display">$0.00</span>
+          </div>
+          <div class="trade-form-row">
+            <label class="trade-label">Saldo Após</label>
+            <span class="trade-balance-after" id="buy-balance-after">—</span>
+          </div>
+        </div>
+        <p class="trade-warning" id="buy-warning" style="display:none;"></p>
+        <div class="modal-actions">
+          <button class="btn btn-cancel" id="buy-cancel">Cancelar</button>
+          <button class="btn btn-buy" id="buy-confirm">Comprar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Venda -->
+    <div id="modal-sell" class="modal-overlay" style="display:none;">
+      <div class="modal trade-modal">
+        <h3>Vender Shares</h3>
+        <div class="trade-modal-header">
+          <p class="trade-market-question" id="sell-market-question">—</p>
+          <span class="trade-position-tag" id="sell-position-tag">—</span>
+        </div>
+        <div class="trade-form">
+          <div class="trade-form-row">
+            <label class="trade-label">Outcome</label>
+            <span class="trade-outcome-display" id="sell-outcome-display">—</span>
+          </div>
+          <div class="trade-form-row">
+            <label class="trade-label">Preço Atual</label>
+            <span class="trade-price-display" id="sell-price-display">—</span>
+          </div>
+          <div class="trade-form-row">
+            <label class="trade-label" for="sell-shares-input">Quantidade</label>
+            <input type="number" id="sell-shares-input" class="trade-input" min="1" step="1" value="1">
+          </div>
+          <div class="trade-form-row">
+            <label class="trade-label">Preço Médio</label>
+            <span class="trade-avg-price" id="sell-avg-price">—</span>
+          </div>
+          <div class="trade-form-row">
+            <label class="trade-label">Retorno</label>
+            <span class="trade-cost-display" id="sell-return-display">$0.00</span>
+          </div>
+          <div class="trade-form-row">
+            <label class="trade-label">P&L da Venda</label>
+            <span class="trade-pnl-sell" id="sell-pnl-display">—</span>
+          </div>
+        </div>
+        <p class="trade-warning" id="sell-warning" style="display:none;"></p>
+        <div class="modal-actions">
+          <button class="btn btn-cancel" id="sell-cancel">Cancelar</button>
+          <button class="btn btn-sell" id="sell-confirm">Vender</button>
         </div>
       </div>
     </div>
