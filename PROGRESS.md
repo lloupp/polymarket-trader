@@ -3,7 +3,7 @@
 ## Skill de referência: `polymarket-trader-builder`
 TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cron).
 
-## Status: Fase 3 concluída — próxima é Fase 4 (Carteira e Comprar/Vender)
+## Status: Fase 4 concluída — próxima é Fase 5 (Portfolio e P&L)
 
 ## Fases
 
@@ -45,13 +45,13 @@ TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cr
 - ✅ Testes de fallback, cache em memória, clearCache, categorização, JSON strings
 - ✅ Commit: `feat: API e mercados`
 
-### Fase 4 — Carteira e Comprar/Vender [PENDENTE]
-- Implementar js/wallet.js: init, getBalance, buy, sell, reset
-- Modal de compra: outcome, quantidade, preview do custo
-- Modal de venda: posição, quantidade, preview do retorno
-- Validação: saldo suficiente, shares suficientes
-- Persistência localStorage
-- Commit: `feat: carteira e comprar/vender`
+### Fase 4 — Carteira e Comprar/Vender [CONCLUÍDO — 2026-08-05]
+- ✅ Implementar js/wallet.js: init, getBalance, buy, sell, reset
+- ✅ Modal de compra: outcome, quantidade, preview do custo
+- ✅ Modal de venda: posição, quantidade, preview do retorno
+- ✅ Validação: saldo suficiente, shares suficientes
+- ✅ Persistência localStorage
+- ✅ Commit: `feat: carteira e comprar/vender`
 
 ### Fase 5 — Portfolio e P&L [PENDENTE]
 - Posições abertas com P&L em tempo real
