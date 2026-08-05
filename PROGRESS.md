@@ -3,7 +3,7 @@
 ## Skill de referência: `polymarket-trader-builder`
 TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cron).
 
-## Status: Fase 1 concluída — próxima é Fase 2 (Layout e Dashboard)
+## Status: Fase 2 concluída — próxima é Fase 3 (API e Mercados)
 
 ## Fases
 
@@ -17,12 +17,17 @@ TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cr
 - ✅ Skill atualizada com endpoints e detalhes da API
 - Commit: `docs: Fase 1 — pesquisa + skill`
 
-### Fase 2 — Layout e Dashboard [PENDENTE]
-- Header com saldo, P&L total, botão reset
-- Tabs: Mercados | Portfolio | Histórico
-- Card de mercado: pergunta, preços Yes/No, volume, categoria
-- CSS: tema escuro, cards, cores verde/vermelho
-- Commit: `feat: layout e dashboard`
+### Fase 2 — Layout e Dashboard [CONCLUÍDO — 2026-08-05]
+- ✅ Header com saldo, P&L total, botão reset
+- ✅ Tabs: Mercados | Portfolio | Histórico
+- ✅ Card de mercado: pergunta, preços Yes/No, volume, liquidez, categoria
+- ✅ CSS: tema escuro, cards, cores verde/vermelho
+- ✅ Busca de mercados + filtro por categoria
+- ✅ Modal de confirmação ao resetar carteira
+- ✅ Toast notifications
+- ✅ Responsividade mobile
+- ✅ Carteira init em localStorage (pm_wallet, $1,000 default)
+- ✅ Commit: `feat: layout e dashboard`
 
 ### Fase 3 — API e Mercados [PENDENTE]
 - Implementar js/api.js: buscar mercados do Polymarket (Gamma API)
