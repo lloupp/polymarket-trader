@@ -1,0 +1,69 @@
+# Polymarket Trader — Plano de Desenvolvimento Incremental
+
+## Skill de referência: `polymarket-trader-builder`
+TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cron).
+
+## Status: Fase 1 pendente (pesquisa)
+
+## Fases
+
+### Fase 1 — Pesquisa [PENDENTE]
+- Pesquisar: API pública do Polymarket (Gamma API, CLOB API)
+- Identificar endpoints: lista de mercados, preços, volume, resolução
+- Estudar como shares funcionam (preço 0-$1, payout $1 se acertar)
+- Estudar UX de plataformas de trading simulado
+- Atualizar skill
+- Commit: `docs: Fase 1 — pesquisa + skill`
+
+### Fase 2 — Layout e Dashboard [PENDENTE]
+- Header com saldo, P&L total, botão reset
+- Tabs: Mercados | Portfolio | Histórico
+- Card de mercado: pergunta, preços Yes/No, volume, categoria
+- CSS: tema escuro, cards, cores verde/vermelho
+- Commit: `feat: layout e dashboard`
+
+### Fase 3 — API e Mercados [PENDENTE]
+- Implementar js/api.js: buscar mercados do Polymarket (Gamma API)
+- Fallback: sample-markets.json offline
+- Renderizar lista com busca e filtro por categoria
+- Auto-refresh de preços
+- Commit: `feat: API e mercados`
+
+### Fase 4 — Carteira e Comprar/Vender [PENDENTE]
+- Implementar js/wallet.js: init, getBalance, buy, sell, reset
+- Modal de compra: outcome, quantidade, preview do custo
+- Modal de venda: posição, quantidade, preview do retorno
+- Validação: saldo suficiente, shares suficientes
+- Persistência localStorage
+- Commit: `feat: carteira e comprar/vender`
+
+### Fase 5 — Portfolio e P&L [PENDENTE]
+- Posições abertas com P&L em tempo real
+- Cálculo: preço médio, custo, valor atual, P&L, P&L %
+- Dashboard: saldo, P&L total, alocação
+- Gráfico de pizza (Canvas): alocação da carteira
+- Commit: `feat: portfolio e P&L`
+
+### Fase 6 — Histórico e Performance [PENDENTE]
+- Log de trades com filtros e exportação CSV
+- Gráfico de linha (Canvas): performance ao longo do tempo
+- Estatísticas: win rate, melhor/pior trade, ticket médio
+- Commit: `feat: histórico e performance`
+
+### Fase 7 — Polimento [PENDENTE]
+- Toast, animações, responsividade mobile
+- Confirmação ao resetar carteira
+- Validação completa
+- Commit: `feat: polimento`
+
+### Fase 8 — Deploy GitHub Pages [PENDENTE]
+- Configurar Pages, verificar, atualizar README
+- Commit: `deploy: GitHub Pages`
+
+## Regras do cron
+1. Ler PROGRESS.md
+2. Implementar fase completa
+3. Testar (node -c, HTML, JSON, localStorage)
+4. Commit + push
+5. Atualizar status
+6. Reportar
