@@ -1,0 +1,202 @@
+[
+  {
+    "id": "559652",
+    "question": "Will Gavin Newsom win the 2028 Democratic presidential nomination?",
+    "slug": "will-gavin-newsom-win-the-2028-democratic-presidential-nomination-568",
+    "category": "politics",
+    "outcomes": [
+      {
+        "name": "Yes",
+        "price": 0.1845
+      },
+      {
+        "name": "No",
+        "price": 0.8155
+      }
+    ],
+    "volume": 26638529.604289975,
+    "liquidity": 372920.50002,
+    "endDate": "2028-11-07T00:00:00Z",
+    "active": true
+  },
+  {
+    "id": "559653",
+    "question": "Will Alexandria Ocasio-Cortez win the 2028 Democratic presidential nomination?",
+    "slug": "will-alexandria-ocasio-cortez-win-the-2028-democratic-presidential-nomination-653",
+    "category": "politics",
+    "outcomes": [
+      {
+        "name": "Yes",
+        "price": 0.1435
+      },
+      {
+        "name": "No",
+        "price": 0.8565
+      }
+    ],
+    "volume": 14140670.436733002,
+    "liquidity": 291739.81167,
+    "endDate": "2028-11-07T00:00:00Z",
+    "active": true
+  },
+  {
+    "id": "559654",
+    "question": "Will Pete Buttigieg win the 2028 Democratic presidential nomination?",
+    "slug": "will-pete-buttigieg-win-the-2028-democratic-presidential-nomination-687",
+    "category": "politics",
+    "outcomes": [
+      {
+        "name": "Yes",
+        "price": 0.0535
+      },
+      {
+        "name": "No",
+        "price": 0.9465
+      }
+    ],
+    "volume": 11738142.857802015,
+    "liquidity": 399331.51007,
+    "endDate": "2028-11-07T00:00:00Z",
+    "active": true
+  },
+  {
+    "id": "559655",
+    "question": "Will Josh Shapiro win the 2028 Democratic presidential nomination?",
+    "slug": "will-josh-shapiro-win-the-2028-democratic-presidential-nomination-977",
+    "category": "politics",
+    "outcomes": [
+      {
+        "name": "Yes",
+        "price": 0.0485
+      },
+      {
+        "name": "No",
+        "price": 0.9515
+      }
+    ],
+    "volume": 9411825.720383,
+    "liquidity": 403442.03638,
+    "endDate": "2028-11-07T00:00:00Z",
+    "active": true
+  },
+  {
+    "id": "3271512",
+    "question": "Shimizu S-Pulse vs. Yokohama F·Marinos: Draw at halftime?",
+    "slug": "jap-ssp-yom-2026-08-15-halftime-result-draw",
+    "category": "sports",
+    "outcomes": [
+      {
+        "name": "Yes",
+        "price": 0.495
+      },
+      {
+        "name": "No",
+        "price": 0.505
+      }
+    ],
+    "volume": 0.0,
+    "liquidity": 99.9997,
+    "endDate": "2026-08-15T09:30:00Z",
+    "active": true
+  },
+  {
+    "id": "2919631",
+    "question": "Map 1 Total Rounds: Over/Under 21.5",
+    "slug": "cs2-phanto-berg-2026-07-14-game1-round-total-21pt5",
+    "category": "sports",
+    "outcomes": [
+      {
+        "name": "Over",
+        "price": 0.48
+      },
+      {
+        "name": "Under",
+        "price": 0.52
+      }
+    ],
+    "volume": 0.0,
+    "liquidity": 99.9993,
+    "endDate": "2026-07-15T00:45:00Z",
+    "active": true
+  },
+  {
+    "id": "1245865",
+    "question": "Will world GDP growth be 3.3% in 2026?",
+    "slug": "will-world-gdp-growth-be-3pt3-in-2026",
+    "category": "economics",
+    "outcomes": [
+      {
+        "name": "Yes",
+        "price": 0.063
+      },
+      {
+        "name": "No",
+        "price": 0.937
+      }
+    ],
+    "volume": 3991.7881140000004,
+    "liquidity": 999.39368,
+    "endDate": "2027-01-15T00:00:00Z",
+    "active": true
+  },
+  {
+    "id": "3207772",
+    "question": "Will the next Google Gemini Pro model be released on August 8, 2026?",
+    "slug": "will-the-next-google-gemini-pro-model-be-released-on-august-8-2026-20260729182045883",
+    "category": "ai",
+    "outcomes": [
+      {
+        "name": "Yes",
+        "price": 0.0005
+      },
+      {
+        "name": "No",
+        "price": 0.9995
+      }
+    ],
+    "volume": 749.344,
+    "liquidity": 999.22083,
+    "endDate": "2026-08-08T23:59:00Z",
+    "active": true
+  },
+  {
+    "id": "2290470",
+    "question": "Set 1 Winner: Norrie vs Navone",
+    "slug": "atp-norrie-navone-2026-05-20-first-set-winner-Norrie-vs-Navone",
+    "category": "general",
+    "outcomes": [
+      {
+        "name": "Norrie",
+        "price": 0.4995
+      },
+      {
+        "name": "Navone",
+        "price": 0.5005
+      }
+    ],
+    "volume": 13.614452,
+    "liquidity": 99.999,
+    "endDate": "2026-05-27T08:00:00Z",
+    "active": true
+  },
+  {
+    "id": "2297726",
+    "question": "Set 1 Winner: Kraus vs Akugue",
+    "slug": "wta-kraus-akugue-2026-05-20-first-set-winner-Kraus-vs-Akugue",
+    "category": "general",
+    "outcomes": [
+      {
+        "name": "Kraus",
+        "price": 0.4995
+      },
+      {
+        "name": "Akugue",
+        "price": 0.5005
+      }
+    ],
+    "volume": 700.585112,
+    "liquidity": 99.98898,
+    "endDate": "2026-05-27T08:00:00Z",
+    "active": true
+  }
+]

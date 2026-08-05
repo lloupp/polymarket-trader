@@ -3,16 +3,18 @@
 ## Skill de referência: `polymarket-trader-builder`
 TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cron).
 
-## Status: Fase 1 pendente (pesquisa)
+## Status: Fase 1 concluída — próxima é Fase 2 (Layout e Dashboard)
 
 ## Fases
 
-### Fase 1 — Pesquisa [PENDENTE]
-- Pesquisar: API pública do Polymarket (Gamma API, CLOB API)
-- Identificar endpoints: lista de mercados, preços, volume, resolução
-- Estudar como shares funcionam (preço 0-$1, payout $1 se acertar)
-- Estudar UX de plataformas de trading simulado
-- Atualizar skill
+### Fase 1 — Pesquisa [CONCLUÍDO — 2026-08-05]
+- ✅ Pesquisar: API pública do Polymarket (Gamma API, CLOB API)
+- ✅ Identificar endpoints: `/markets`, `/events`, `/tags`, `/markets/{id}`, `/events/{id}`
+- ✅ Estudar como shares funcionam (preço 0-$1, payout $1 se acertar)
+- ✅ Estudar UX de plataformas de trading simulado
+- ✅ Documentação completa em `docs/api-research.md`
+- ✅ Sample markets reais da API em `data/sample-markets.json` (10 mercados, 4 categorias)
+- ✅ Skill atualizada com endpoints e detalhes da API
 - Commit: `docs: Fase 1 — pesquisa + skill`
 
 ### Fase 2 — Layout e Dashboard [PENDENTE]
