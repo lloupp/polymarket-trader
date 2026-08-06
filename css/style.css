@@ -843,6 +843,224 @@ body {
   color: var(--blue);
 }
 
+/* ===== Fase 6: Histórico e Performance ===== */
+.history-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.history-stats-top {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.history-stats-top .stat-card {
+  flex: 1;
+  min-width: 130px;
+  padding: 14px 18px;
+}
+
+/* Gráfico de performance */
+.history-chart-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-chart-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.history-chart-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.history-chart-canvas {
+  width: 100%;
+  height: 220px;
+  min-width: 300px;
+  max-width: 100%;
+}
+
+/* Toolbar do histórico */
+.history-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.history-filters {
+  display: flex;
+  gap: 6px;
+}
+
+.history-filter-btn {
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.history-filter-btn:hover {
+  border-color: var(--blue);
+  color: var(--text-primary);
+}
+
+.history-filter-btn.active {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
+
+.history-filter-btn.active:hover {
+  background: #2563eb;
+}
+
+/* Botão CSV */
+.btn-csv {
+  color: var(--green);
+  border-color: var(--green);
+  background: rgba(34, 197, 94, 0.1);
+  white-space: nowrap;
+}
+
+.btn-csv:hover {
+  background: rgba(34, 197, 94, 0.2);
+}
+
+/* Tabela de trades */
+.history-table-container {
+  overflow-x: auto;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.history-table thead {
+  background: var(--bg-input);
+}
+
+.history-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.history-table th.num {
+  text-align: right;
+}
+
+.history-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.history-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.history-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+.history-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.history-table td.trade-date {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.history-table td.trade-question {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.trade-side-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.trade-side-badge.trade-buy {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--green);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.trade-side-badge.trade-sell {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--red);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.trade-outcome-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.trade-outcome-badge.yes {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--yes-color);
+}
+
+.trade-outcome-badge.no {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--no-color);
+}
+
+/* Esconde seções quando vazio */
+#history-chart-section:empty,
+#history-stats-top:empty {
+  display: none;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 600px) {
   .header {
@@ -867,5 +1085,23 @@ body {
   .portfolio-stats-top, .history-stats {
     flex-direction: column;
     align-items: center;
+  }
+  .history-stats-top {
+    flex-direction: column;
+    align-items: center;
+  }
+  .history-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .history-filters {
+    justify-content: center;
+  }
+  .history-table th, .history-table td {
+    padding: 6px 8px;
+    font-size: 0.72rem;
+  }
+  .history-chart-canvas {
+    height: 180px;
   }
 }

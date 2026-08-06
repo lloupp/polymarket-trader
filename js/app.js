@@ -6,6 +6,7 @@ import { formatUSD, formatPercent, formatPrice } from './utils.js';
 import { fetchMarkets, refreshPrices, clearCache } from './api.js';
 import { init as initWallet, getBalance, getWallet, buy as walletBuy, sell as walletSell, reset as walletReset, getPositions, getPosition, getTrades } from './wallet.js';
 import { computePortfolioSummary, getAllocationData, drawAllocationPie, renderAllocationLegend, renderPositionCards } from './portfolio.js';
+import { filterTrades, computeStats, buildEquityCurve, drawPerformanceChart, renderStatsCards, renderTradesTable, tradesToCSV, downloadCSV } from './trades.js';
 
 // ===== Configuração =====
 const AUTO_REFRESH_MS = 60_000;  // auto-refresh a cada 60s enquanto a aba está aberta
@@ -23,6 +24,8 @@ const state = {
   // Contexto de modal de compra/venda
   buyContext: null,     // { marketId, marketQuestion, outcome, price }
   sellContext: null,    // { marketId, marketQuestion, outcome, price, avgPrice, shares }
+  // Filtro de histórico (Fase 6)
+  historyFilter: 'all',  // 'all' | 'buy' | 'sell'
 };
 
 // ===== Init =====
@@ -31,6 +34,7 @@ async function init() {
   initWallet();  // wallet.js: cria pm_wallet se não existir
   bindEvents();
   bindTradeModals();
+  bindHistoryEvents();  // Fase 6: filtros + CSV
   await loadMarkets();
   renderHeader();
   renderMarkets();
@@ -135,6 +139,7 @@ function bindEvents() {
       document.getElementById('modal-reset').style.display = 'none';
       renderHeader();
       renderPortfolio();
+      renderHistory();  // Fase 6: atualiza histórico após reset
       loadMarkets().then(() => renderMarkets());  // recarrega mercados
       showToast('Carteira reiniciada! Saldo: $1,000.00', 'info');
     });
@@ -472,6 +477,7 @@ function confirmBuy() {
     closeBuyModal();
     renderHeader();
     renderPortfolio();
+    if (state.activeTab === 'history') renderHistory();  // Fase 6: atualiza histórico
   } else {
     showToast(result.message, 'error');
     // Mostra warning no modal
@@ -596,6 +602,7 @@ function confirmSell() {
     closeSellModal();
     renderHeader();
     renderPortfolio();
+    if (state.activeTab === 'history') renderHistory();  // Fase 6: atualiza histórico
   } else {
     showToast(result.message, 'error');
     const warningEl = document.getElementById('sell-warning');
@@ -669,26 +676,73 @@ function renderPortfolio() {
   renderAllocationLegend(legend, allocData);
 }
 
-// ===== Histórico (Fase 4 — básico; completo na Fase 6) =====
+// ===== Histórico (Fase 6 — completo: filtros, tabela, stats, gráfico, CSV) =====
 function renderHistory() {
-  // Fase 4: placeholder básico — detalhes completos na Fase 6
-  const trades = getTrades();
-  // Atualiza os stat cards do placeholder
-  const historyStats = document.querySelector('#tab-history .history-stats');
-  if (historyStats) {
-    const totalTrades = trades.length;
-    const volume = trades.reduce((sum, t) => sum + t.totalCost, 0);
-    const statCards = historyStats.querySelectorAll('.stat-value');
-    if (statCards[0]) statCards[0].textContent = totalTrades;
-    if (statCards[1]) statCards[1].textContent = formatUSD(volume);
+  const trades = getTrades();  // mais recente primeiro (do wallet.js)
+  const wallet = getWallet();
+  const statsTop = document.getElementById('history-stats-top');
+  const chartSection = document.getElementById('history-chart-section');
+  const tableContainer = document.getElementById('history-table-container');
+  const emptyMsg = document.getElementById('history-empty');
+
+  // Estado vazio: nenhum trade
+  if (trades.length === 0) {
+    if (statsTop) statsTop.innerHTML = '';
+    if (chartSection) chartSection.style.display = 'none';
+    if (tableContainer) tableContainer.innerHTML = '';
+    if (emptyMsg) emptyMsg.style.display = 'block';
+    return;
+  }
+  if (emptyMsg) emptyMsg.style.display = 'none';
+  if (chartSection) chartSection.style.display = 'flex';
+
+  // 1. Estatísticas (processa todos os trades, não os filtrados)
+  //    getTrades() retorna inverso (mais recente primeiro); inverter para cronológico
+  const chronoTrades = [...trades].reverse();
+  const stats = computeStats(chronoTrades);
+  if (statsTop) {
+    statsTop.innerHTML = renderStatsCards(stats);
   }
 
-  // Atualiza o texto do placeholder
-  const placeholder = document.querySelector('#tab-history .text-secondary');
-  if (placeholder) {
-    placeholder.textContent = trades.length > 0
-      ? `Você já fez ${trades.length} operações. Histórico completo na Fase 6.`
-      : 'O histórico de operações aparecerá aqui após a Fase 6.';
+  // 2. Gráfico de performance (linha de equity) sobre todos os trades
+  const curve = buildEquityCurve(chronoTrades, wallet.initialBalance);
+  const canvas = document.getElementById('history-performance-canvas');
+  drawPerformanceChart(canvas, curve, wallet.initialBalance);
+
+  // 3. Tabela de trades com filtro aplicado
+  //    getTrades() já está em ordem "mais recente primeiro"
+  const filtered = filterTrades(trades, state.historyFilter);
+  if (tableContainer) {
+    tableContainer.innerHTML = renderTradesTable(filtered);
+  }
+}
+
+// ===== Bindings do histórico (Fase 6) =====
+function bindHistoryEvents() {
+  // Filtros de histórico
+  document.querySelectorAll('.history-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.history-filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.historyFilter = btn.dataset.filter;
+      renderHistory();
+    });
+  });
+
+  // Botão de exportar CSV
+  const btnCSV = document.getElementById('btn-export-csv');
+  if (btnCSV) {
+    btnCSV.addEventListener('click', () => {
+      const trades = getTrades();
+      if (trades.length === 0) {
+        showToast('Nenhum trade para exportar', 'info');
+        return;
+      }
+      const csv = tradesToCSV(trades);
+      const dateStr = new Date().toISOString().split('T')[0];
+      downloadCSV(csv, `polymarket-trades-${dateStr}.csv`);
+      showToast('CSV exportado com ' + trades.length + ' trades', 'success');
+    });
   }
 }
 

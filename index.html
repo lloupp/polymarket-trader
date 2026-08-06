@@ -104,18 +104,38 @@
 
     <!-- Tab: Histórico -->
     <section id="tab-history" class="tab-content">
-      <div class="history-placeholder">
-        <h2>Histórico de Trades</h2>
-        <p class="text-secondary">O histórico de operações aparecerá aqui após a Fase 6.</p>
-        <div class="history-stats">
-          <div class="stat-card">
-            <span class="stat-label">Total de Trades</span>
-            <span class="stat-value">0</span>
+      <div class="history-content">
+        <!-- Estatísticas -->
+        <div class="history-stats-top" id="history-stats-top">
+          <!-- Stat cards renderizadas via JS (trades.js) -->
+        </div>
+
+        <!-- Gráfico de performance (linha de equity) -->
+        <div class="history-chart-section" id="history-chart-section">
+          <h3 class="history-chart-title">Performance da Carteira</h3>
+          <div class="history-chart-wrapper">
+            <canvas class="history-chart-canvas" id="history-performance-canvas"></canvas>
           </div>
-          <div class="stat-card">
-            <span class="stat-label">Volume Total</span>
-            <span class="stat-value">$0.00</span>
+        </div>
+
+        <!-- Toolbar: filtros + exportação CSV -->
+        <div class="history-toolbar">
+          <div class="history-filters">
+            <button class="history-filter-btn active" data-filter="all">Todos</button>
+            <button class="history-filter-btn" data-filter="buy">Compras</button>
+            <button class="history-filter-btn" data-filter="sell">Vendas</button>
           </div>
+          <button id="btn-export-csv" class="btn btn-csv" title="Exportar trades como CSV">📊 Exportar CSV</button>
+        </div>
+
+        <!-- Mensagem vazia -->
+        <div id="history-empty" class="empty-msg" style="display:none;">
+          Você ainda não fez nenhuma operação. Compre shares na aba Mercados para começar.
+        </div>
+
+        <!-- Tabela de trades -->
+        <div id="history-table-container" class="history-table-container">
+          <!-- Tabela renderizada via JS (trades.js) -->
         </div>
       </div>
     </section>
