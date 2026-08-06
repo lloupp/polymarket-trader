@@ -3,7 +3,7 @@
 ## Skill de referência: `polymarket-trader-builder`
 TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cron).
 
-## Status: Fase 5 concluída — próxima é Fase 6 (Histórico e Performance)
+## Status: Fase 6 concluída — próxima é Fase 7 (Polimento)
 
 ## Fases
 
@@ -67,11 +67,20 @@ TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cr
 - ✅ Testes lógicos: P&L individual, agregado, multi-posição, alocação multi-mercado
 - ✅ Commit: `feat: portfolio e P&L` (hash `a537b52`)
 
-### Fase 6 — Histórico e Performance [PENDENTE]
-- Log de trades com filtros e exportação CSV
-- Gráfico de linha (Canvas): performance ao longo do tempo
-- Estatísticas: win rate, melhor/pior trade, ticket médio
-- Commit: `feat: histórico e performance`
+### Fase 6 — Histórico e Performance [CONCLUÍDO — 2026-08-06]
+- ✅ Implementar js/trades.js: módulo completo com filtros, tabela, exportação CSV
+- ✅ Gráfico de linha (Canvas): performance da carteira ao longo do tempo (equity curve)
+- ✅ Estatísticas: win rate, melhor trade, pior trade, ticket médio, total volume, P&L realizado
+- ✅ `computeStats()` calcula P&L por venda (considerando preço médio ponderado via cost basis)
+- ✅ `buildEquityCurve()` reconstroi a evolução do patrimônio (saldo + investido)
+- ✅ `drawPerformanceChart()` gráfico de linha DPI-aware com grid, labels, linha de referência
+- ✅ Tabela de trades com badges de tipo (Compra/Venda) e outcome (Yes/No), datas formatadas
+- ✅ Filtros: Todos | Compras | Vendas (botões na toolbar)
+- ✅ Exportação CSV via Blob download
+- ✅ CSS: tema escuro consistente, tabela scrollável no mobile, gráfico de performance
+- ✅ app.js: atualiza histórico após compra/venda/reset se aba histórico ativa
+- ✅ Testes lógicos: filtro (5/3/2), stats (winRate 50%, P&L das vendas $5/-$5), equity curve (6 pontos), CSV (5 linhas)
+- ✅ Commit: `feat: histórico e performance — Fase 6` (hash `16b40ac`)
 
 ### Fase 7 — Polimento [PENDENTE]
 - Toast, animações, responsividade mobile
