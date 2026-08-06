@@ -292,6 +292,128 @@ function strategyBargainHunting(markets, config) {
 }
 
 /**
+ * Estratégia Value Betting (Expected Value): cria uma "estimativa de
+ * probabilidade justa" do mercado a partir do preço atual + histórico
+ * e compra outcomes cujo preço está bem abaixo-band da estimativa.
+ *
+ * EV = (probEstimada × payout) − preço
+ * Compra se EV > 0 (preço subestimado).
+ *
+ * A "estimativa de probabilidade justa" usa uma média entre o preço atual
+ * e a média dos últimos preços históricos (suavização). Em mercados de
+ * predição, o preço é a probabilidade implícita; se a nossa estimativa
+ * suavizada é maior que o preço atual, há edge.
+ *
+ * @param {Array} markets
+ * @param {Object} config
+ * @returns {Object|null}
+ */
+function strategyValueBetting(markets, config) {
+  const candidates = [];
+
+  for (const m of markets) {
+    for (const o of m.outcomes) {
+      if (!o.name || o.price == null) continue;
+      if (o.price < config.minPriceToBuy || o.price > config.maxPriceToBuy) continue;
+
+      const history = getPriceHistory(m.id, o.name);
+      // Precisa de pelo menos 5 pontos de histórico para estimar
+      if (history.length < 5) continue;
+
+      // Estimativa de prob justa: média dos últimos 5 preços (suavização)
+      const recent = history.slice(-5).map(h => h.price);
+      const fairProb = recent.reduce((s, p) => s + p, 0) / recent.length;
+
+      // EV = prob_justa × retorno - preço
+      // (payout = 1.0 em mercados de predição)
+      const ev = (fairProb * 1.0) - o.price;
+      const evPercent = (ev / o.price) * 100;
+
+      // Compra se EV > 5% (margem de segurança para ruído)
+      if (evPercent > 5) {
+        candidates.push({
+          marketId: m.id,
+          marketQuestion: m.question,
+          outcome: o.name,
+          price: o.price,
+          reason: `Value Bet: ${o.name} a ${(o.price * 100).toFixed(1)}¢, EV=+${evPercent.toFixed(1)}% (prob justa ${(fairProb * 100).toFixed(1)}¢)`,
+          score: evPercent,
+        });
+      }
+    }
+  }
+
+  if (candidates.length === 0) return null;
+  // Escolhe o de maior EV
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0];
+}
+
+/**
+ * Estratégia Kelly Criterion: calcula a fração ótima do bankroll para
+ * apostar em cada outcome baseada na edge estimada (EV) e varia o
+ * tamanho do trade dinamicamente. Retorna o outcome com maior f* de Kelly.
+ *
+ * f* = (p × b - q) / b
+ * onde:
+ *   p = probabilidade estimada de ganhar (prob justa suavizada)
+ *   q = 1 - p (probabilidade de perder)
+ *   b = (1 - preço) / preço (odds decimal relativa: quanto ganha por $1 investido)
+ *
+ * Recomenda apostar se f* > 0 (edge positivo). Usa meio-Kelly (f* / 2)
+ * para reduzir volatilidade (prática padrão em trading real).
+ *
+ * @param {Array} markets
+ * @param {Object} config
+ * @returns {Object|null} — Pick com campo extra kellyFraction recomendada
+ */
+function strategyKelly(markets, config) {
+  const candidates = [];
+
+  for (const m of markets) {
+    for (const o of m.outcomes) {
+      if (!o.name || o.price == null) continue;
+      if (o.price < config.minPriceToBuy || o.price > config.maxPriceToBuy) continue;
+
+      const history = getPriceHistory(m.id, o.name);
+      if (history.length < 5) continue;
+
+      // Estimativa p via média suavizada dos últimos 5 preços
+      const recent = history.slice(-5).map(h => h.price);
+      const p = recent.reduce((s, pr) => s + pr, 0) / recent.length;
+      const q = 1 - p;
+
+      // Odds b: se preço é 0.30, paga 1/0.30 = 3.33x; b = (1-price)/price
+      const price = o.price;
+      if (price <= 0 || price >= 1) continue;
+      const b = (1 - price) / price;
+
+      // fKelly = (p × b - q) / b — pode ser negativo (sem edge)
+      const fKelly = (p * b - q) / b;
+      // Meio-Kelly para reduzir volatilidade
+      const fHalf = fKelly / 2;
+
+      // Só recomenda se f* > 0 (tem edge) e meio-Kelly >= 1% do saldo
+      if (fHalf > 0.01) {
+        candidates.push({
+          marketId: m.id,
+          marketQuestion: m.question,
+          outcome: o.name,
+          price: price,
+          reason: `Kelly f*=${(fKelly * 100).toFixed(1)}% (½Kelly ${(fHalf * 100).toFixed(1)}%) — p estim ${(p * 100).toFixed(1)}¢ vs preço ${(price * 100).toFixed(1)}¢`,
+          score: fHalf, // maior fHalf = melhor
+          kellyFraction: fHalf, // exposto para evaluateNewEntries usar
+        });
+      }
+    }
+  }
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0];
+}
+
+/**
  * Estratégia Aleatória: compra ou vende aleatoriamente (toy).
  * ~60% chance de comprar, ~40% de vender (se tem posições).
  *
@@ -482,6 +604,12 @@ function evaluateNewEntries(markets, config) {
     case 'bargainHunting':
       pick = strategyBargainHunting(markets, config);
       break;
+    case 'valueBetting':
+      pick = strategyValueBetting(markets, config);
+      break;
+    case 'kelly':
+      pick = strategyKelly(markets, config);
+      break;
     case 'random':
       pick = strategyRandom(markets, config);
       isSellAction = pick?.action === 'sell';
@@ -531,11 +659,22 @@ function evaluateNewEntries(markets, config) {
       return actions;
     }
 
-    const maxShares = Math.floor(tradeBudget / price);
+    // Para Kelly: o orçamento do trade é multiplicado pela fração kelly
+    // (meio-Kelly já está embutida no kellyFraction). Cap em 25% do saldo
+    // para evitar over-bet mesmo com f* alto.
+    let effectiveBudget = tradeBudget;
+    if (config.strategy === 'kelly' && pick.kellyFraction) {
+      const kellyCap = Math.min(pick.kellyFraction, 0.25); // max 25% do saldo
+      effectiveBudget = wallet.balance * kellyCap;
+      // Mínimo do orçamento padrão e do Kelly cap
+      effectiveBudget = Math.max(effectiveBudget, tradeBudget * 0.5);
+    }
+
+    const maxShares = Math.floor(effectiveBudget / price);
     if (maxShares < 1) {
       actions.push({
         action: 'skip',
-        reason: `Orçamento (${tradeBudget.toFixed(2)}) insuficiente para comprar a ${(price * 100).toFixed(1)}¢`,
+        reason: `Orçamento (${effectiveBudget.toFixed(2)}) insuficiente para comprar a ${(price * 100).toFixed(1)}¢`,
       });
       return actions;
     }
@@ -742,6 +881,8 @@ export const _strategies = {
   momentum: strategyMomentum,
   meanReversion: strategyMeanReversion,
   bargainHunting: strategyBargainHunting,
+  valueBetting: strategyValueBetting,
+  kelly: strategyKelly,
   random: strategyRandom,
 };
 
