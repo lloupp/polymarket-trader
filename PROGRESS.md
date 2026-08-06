@@ -143,3 +143,14 @@ TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cr
 4. Commit + push
 5. Atualizar status
 6. Reportar
+
+## Fase 10 — Estratégias Avançadas (Value Betting + Kelly) [CONCLUÍDO — 2026-08-06]
+- ✅ Adicionada estratégia **Value Betting (EV)**: estima prob justa via média dos últimos 5 preços históricos, compra se EV% > 5% (margem de segurança contra ruído)
+- ✅ Adicionada estratégia **Kelly Criterion**: f* = (p×b - q)/b onde p=prob estimada, b=(1-preço)/preço (odds), q=1-p. Usa ½-Kelly para reduzir volatilidade. Cap em 25% do saldo
+- ✅ `evaluateNewEntries` ajusta `tradeBudget` dinamicamente para Kelly (usa `kellyFraction × wallet.balance`, capped)
+- ✅ Opções adicionadas no `<select id="bot-strategy">`: `📊 Value Betting (EV)` e `🎯 Kelly Criterion (½-Kelly)`
+- ✅ Ambas precisam de ≥5 pontos de histórico de preços (`pm_market_history`)
+- ✅ Recusam preço 0/1 (edge cases), recusem mercado sem edge
+- ✅ Exports em `_strategies.{valueBetting, kelly}`
+- ✅ Testes: 12/12 passaram (EV detectou +28.5% edge, Kelly f*=19%/½=9.5% conforme cálculo manual, edge cases)
+- Commit: `feat: estratégias Value Betting (EV) + Kelly Criterion — Fase 10` (hash `53376d5`)
