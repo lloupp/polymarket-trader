@@ -3,7 +3,7 @@
 ## Skill de referência: `polymarket-trader-builder`
 TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cron).
 
-## Status: Fase 6 concluída — próxima é Fase 7 (Polimento)
+## Status: Fase 7 concluída — próxima é Fase 8 (Deploy GitHub Pages)
 
 ## Fases
 
@@ -82,11 +82,24 @@ TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cr
 - ✅ Testes lógicos: filtro (5/3/2), stats (winRate 50%, P&L das vendas $5/-$5), equity curve (6 pontos), CSV (5 linhas)
 - ✅ Commit: `feat: histórico e performance — Fase 6` (hash `16b40ac`)
 
-### Fase 7 — Polimento [PENDENTE]
-- Toast, animações, responsividade mobile
-- Confirmação ao resetar carteira
-- Validação completa
-- Commit: `feat: polimento`
+### Fase 7 — Polimento [CONCLUÍDO — 2026-08-06]
+- ✅ Animações: fade-in + stagger em cards de mercado e posições
+- ✅ Skeleton loaders (shimmer) durante carregamento de mercados
+- ✅ Toast com fade-out animado ao auto-dismiss (3s + 300ms fade)
+- ✅ Modal com scale-in animation + backdrop blur
+- ✅ Pulse no P&L header quando muda de valor
+- ✅ Tab transition: fade-in ao trocar de aba
+- ✅ Empty states bonitos: ícone + título + descrição (Mercados, Portfolio, Histórico)
+- ✅ Keyboard shortcuts: ESC fecha modais, Enter confirma compra/venda
+- ✅ Autofocus + select no input de quantidade ao abrir modais (compra/venda)
+- ✅ aria-labels, role=dialog, aria-modal, aria-selected, role=tablist (accessibility)
+- ✅ focus-visible outline em elementos interativos
+- ✅ Touch targets 44px mínimo em dispositivos sem hover
+- ✅ Validação robusta: Math.max(0, Math.floor(...)) em todos os inputs de quantidade
+- ✅ Bug fix: escapeHtmlAttr em trades.js não escapava & e " corretamente
+- ✅ Responsividade: portfolio chart em coluna no mobile, scrollbar styled
+- ✅ Stat cards com hover effect (border + translateY)
+- ✅ Commit: `feat: polimento` (hash `c73ce69`)
 
 ### Fase 8 — Deploy GitHub Pages [PENDENTE]
 - Configurar Pages, verificar, atualizar README
