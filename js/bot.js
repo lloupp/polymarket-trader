@@ -1,9 +1,10 @@
 // bot.js — Motor de Negociação Autônoma (Auto-Trader)
 // Fase 9: bot que negocia sozinho na carteira fictícia via setInterval.
-// Estratégias: momentum, reversão à média, comprar barato amplo, aleatória.
+// Estratégias: momentum, reversão à média, comprar barato amplo, value betting
+//              (EV), Kelly criterion (½-Kelly), aleatória.
 // Gestão de posições: take-profit e stop-loss automáticos.
 // Persistência: pm_bot_config (config), pm_bot_log (log de ações),
-//                pm_market_history (histórico de preços para momentum).
+//                pm_market_history (histórico de preços para momentum/Kelly/EV).
 
 import { saveToStorage, loadFromStorage } from './utils.js';
 import { getWallet, buy as walletBuy, sell as walletSell, getPositions, getPosition } from './wallet.js';
@@ -19,7 +20,7 @@ const MAX_HISTORY_PER_MARKET = 30;
 // ===== Configuração padrão =====
 const DEFAULT_CONFIG = {
   enabled: false,
-  strategy: 'momentum',        // 'momentum' | 'meanReversion' | 'bargainHunting' | 'random'
+  strategy: 'momentum',        // 'momentum' | 'meanReversion' | 'bargainHunting' | 'valueBetting' | 'kelly' | 'random'
   porTrade: 5,                 // % do saldo por operação
   maxOpenPositions: 10,
   minPriceToBuy: 0.05,
