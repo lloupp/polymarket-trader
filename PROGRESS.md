@@ -3,7 +3,7 @@
 ## Skill de referência: `polymarket-trader-builder`
 TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cron).
 
-## Status: Fase 7 concluída — próxima é Fase 8 (Deploy GitHub Pages)
+## Status: Fase 8 concluída — próxima é Fase 9 (Auto-Trader)
 
 ## Fases
 
@@ -101,9 +101,18 @@ TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cr
 - ✅ Stat cards com hover effect (border + translateY)
 - ✅ Commit: `feat: polimento` (hash `c73ce69`)
 
-### Fase 8 — Deploy GitHub Pages [PENDENTE]
-- Configurar Pages, verificar, atualizar README
-- Commit: `deploy: GitHub Pages`
+### Fase 8 — Deploy GitHub Pages [CONCLUÍDO — 2026-08-06]
+- ✅ GitHub Pages habilitado via API REST (build_type: "legacy", deploy do branch master direto)
+- ✅ URL: https://lloupp.github.io/polymarket-trader/
+- ✅ HTTPS enforced (GitHub Pages Cloudflare edge)
+- ✅ Build completou em ~132s (status: "built")
+- ✅ Todos os assets servidos com HTTP 200 (index.html, css/style.css, 7 JS modules, sample-markets.json)
+- ✅ README atualizado: link da demo, recursos completos (Fases 1-7), estrutura de arquivos, localStorage docs
+- ✅ .gitignore criado (data/tmp/, editor files, OS files)
+- ⚠️ Workflow `.github/workflows/deploy.yml` NÃO usado — o token gh OAuth não tem scope `workflow`.
+   Em vez disso, usamos o modo "legacy" (deploy from branch) via API REST, que não precisa de Actions.
+- Commit: `docs: atualiza README + .gitignore para deploy GitHub Pages` (hash `9e309ca`)
+- Commit: `deploy: GitHub Pages habilitado via API`
 
 ### Fase 9 — Motor de Negociação Autônoma (Auto-Trader) [PENDENTE]
 - Implementar js/bot.js: ciclo de avaliação via setInterval
