@@ -7,6 +7,7 @@ import { fetchMarkets, refreshPrices, clearCache } from './api.js';
 import { init as initWallet, getBalance, getWallet, buy as walletBuy, sell as walletSell, reset as walletReset, getPositions, getPosition, getTrades } from './wallet.js';
 import { computePortfolioSummary, getAllocationData, drawAllocationPie, renderAllocationLegend, renderPositionCards } from './portfolio.js';
 import { filterTrades, computeStats, buildEquityCurve, drawPerformanceChart, renderStatsCards, renderTradesTable, tradesToCSV, downloadCSV } from './trades.js';
+import { getConfig as getBotConfig, saveConfig as saveBotConfig, updateConfig as updateBotConfig, resetConfig as resetBotConfig, getLog as getBotLog, clearLog as clearBotLog, getBotStats, tick as botTick, start as botStart, stop as botStop, isRunning as botIsRunning, resetTickCount, getTickCount } from './bot.js';
 
 // ===== Configuração =====
 const AUTO_REFRESH_MS = 60_000;  // auto-refresh a cada 60s enquanto a aba está aberta
@@ -36,9 +37,11 @@ async function init() {
   bindTradeModals();
   bindHistoryEvents();  // Fase 6: filtros + CSV
   bindKeyboardShortcuts();  // Fase 7: ESC fecha modais, Enter confirma
+  bindBotEvents();  // Fase 9: controles do Auto-Trader
   await loadMarkets();
   renderHeader();
   renderMarkets();
+  renderBotPanel();  // Fase 9: inicializa painel do bot com config salva
   startAutoRefresh();
 }
 
@@ -135,12 +138,15 @@ function bindEvents() {
   const resetConfirm = document.getElementById('reset-confirm');
   if (resetConfirm) {
     resetConfirm.addEventListener('click', () => {
+      if (botIsRunning()) botStop();  // Fase 9: para o bot antes de resetar
       walletReset();
       clearCache();  // força re-fetch da API na próxima renderização
       document.getElementById('modal-reset').style.display = 'none';
       renderHeader();
       renderPortfolio();
       renderHistory();  // Fase 6: atualiza histórico após reset
+      clearBotLog();  // Fase 9: limpa log do bot
+      if (state.activeTab === 'bot') { renderBotPanel(); renderBotLog(); }
       loadMarkets().then(() => renderMarkets());  // recarrega mercados
       showToast('Carteira reiniciada! Saldo: $1,000.00', 'info');
     });
@@ -181,6 +187,7 @@ function switchTab(tabName) {
   // Renderiza a tab se necessário
   if (tabName === 'portfolio') renderPortfolio();
   if (tabName === 'history') renderHistory();
+  if (tabName === 'bot') { renderBotPanel(); renderBotLog(); }
 }
 
 // ===== Carregar mercados (Fase 3: Gamma API com fallback) =====
@@ -852,6 +859,285 @@ function bindKeyboardShortcuts() {
       }
     }
   });
+}
+
+// ===== Fase 9: Auto-Trader — Renderização e Events =====
+
+/**
+ * Preenche o formulário do painel do bot com a config salva.
+ * Atualiza o indicador de status (ligado/desligado) e o tick count.
+ */
+function renderBotPanel() {
+  const config = getBotConfig();
+
+  // Preenche os campos
+  const strategy = document.getElementById('bot-strategy');
+  if (strategy) strategy.value = config.strategy;
+
+  const porTrade = document.getElementById('bot-por-trade');
+  if (porTrade) porTrade.value = config.porTrade;
+
+  const maxPos = document.getElementById('bot-max-positions');
+  if (maxPos) maxPos.value = config.maxOpenPositions;
+
+  const minPrice = document.getElementById('bot-min-price');
+  if (minPrice) minPrice.value = Math.round(config.minPriceToBuy * 100);
+
+  const maxPrice = document.getElementById('bot-max-price');
+  if (maxPrice) maxPrice.value = Math.round(config.maxPriceToBuy * 100);
+
+  const profitTarget = document.getElementById('bot-profit-target');
+  if (profitTarget) profitTarget.value = config.profitTarget;
+
+  const stopLoss = document.getElementById('bot-stop-loss');
+  if (stopLoss) stopLoss.value = config.stopLoss;
+
+  const interval = document.getElementById('bot-interval');
+  if (interval) interval.value = Math.round(config.intervalMs / 1000);
+
+  // Atualiza status
+  updateBotStatusUI();
+  renderBotStats();
+}
+
+/**
+ * Atualiza a UI do indicador de status do bot (ligado/desligado + tick count).
+ */
+function updateBotStatusUI() {
+  const running = botIsRunning();
+  const indicator = document.getElementById('bot-status-indicator');
+  const dot = document.getElementById('bot-status-dot');
+  const text = document.getElementById('bot-status-text');
+  const toggleBtn = document.getElementById('btn-bot-toggle');
+  const tickEl = document.getElementById('bot-tick-count');
+
+  if (indicator) indicator.classList.toggle('running', running);
+  if (dot) dot.textContent = running ? '🟢' : '⚫';
+  if (text) text.textContent = running ? 'Rodando...' : 'Desligado';
+
+  if (toggleBtn) {
+    if (running) {
+      toggleBtn.textContent = '⏹ Parar Bot';
+      toggleBtn.classList.add('running');
+    } else {
+      toggleBtn.textContent = '▶ Ligar Bot';
+      toggleBtn.classList.remove('running');
+    }
+  }
+
+  if (tickEl) tickEl.textContent = getTickCount();
+}
+
+/**
+ * Renderiza as estatísticas do bot (total de ações, compras, vendas, última ação).
+ */
+function renderBotStats() {
+  const stats = getBotStats();
+  const container = document.getElementById('bot-stats-top');
+  if (!container) return;
+
+  if (stats.totalActions === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const lastActionTime = stats.lastAction
+    ? new Date(stats.lastAction.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    : '—';
+
+  container.innerHTML = `
+    <div class="stat-card">
+      <span class="stat-label">Total de Ações</span>
+      <span class="stat-value">${stats.totalActions}</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Compras</span>
+      <span class="stat-value pnl-positive">${stats.totalBuys}</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Vendas</span>
+      <span class="stat-value pnl-negative">${stats.totalSells}</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Última Ação</span>
+      <span class="stat-value" style="font-size:0.9rem;">${lastActionTime}</span>
+    </div>
+  `;
+}
+
+/**
+ * Renderiza o log de ações do bot.
+ */
+function renderBotLog() {
+  const log = getBotLog(100);
+  const container = document.getElementById('bot-log-container');
+  const emptyMsg = document.getElementById('bot-log-empty');
+  if (!container) return;
+
+  if (log.length === 0) {
+    container.innerHTML = '';
+    if (emptyMsg) emptyMsg.style.display = 'block';
+    return;
+  }
+  if (emptyMsg) emptyMsg.style.display = 'none';
+
+  container.innerHTML = log.map(entry => {
+    const dt = new Date(entry.timestamp);
+    const timeStr = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+      + ' ' + dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const actionLabel = entry.action === 'buy' ? 'Compra' : 'Venda';
+    const actionClass = entry.action === 'buy' ? 'buy' : 'sell';
+    const market = entry.market || entry.marketQuestion || '—';
+    const truncMarket = market.length > 50 ? market.substring(0, 50) + '…' : market;
+    const metricText = entry.shares != null
+      ? `${entry.shares} shares @ ${formatPrice(entry.price)} → ${formatUSD(entry.shares * entry.price)}`
+      : '';
+
+    return `
+      <div class="bot-log-entry">
+        <span class="bot-log-time">${timeStr}</span>
+        <span class="bot-log-badge ${actionClass}">${actionLabel}</span>
+        <div class="bot-log-detail">
+          <div class="bot-log-market">${escapeHtml(truncMarket)}</div>
+          ${metricText ? `<div class="bot-log-metric">${escapeHtml(entry.reason || '')} — ${metricText}</div>` : `<div class="bot-log-metric">${escapeHtml(entry.reason || '')}</div>`}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/**
+ * Lê os valores dos inputs do formulário e monta um objeto config.
+ * Converte preço de centavos (UI) para decimal 0-1 (interno).
+ * @returns {Object} — config capturada do formulário
+ */
+function readBotConfigFromForm() {
+  const porTrade = parseInt(document.getElementById('bot-por-trade')?.value) || 5;
+  const maxPos = parseInt(document.getElementById('bot-max-positions')?.value) || 10;
+  const minPriceCents = parseInt(document.getElementById('bot-min-price')?.value) || 5;
+  const maxPriceCents = parseInt(document.getElementById('bot-max-price')?.value) || 75;
+  const profitTarget = parseInt(document.getElementById('bot-profit-target')?.value) || 20;
+  const stopLoss = parseInt(document.getElementById('bot-stop-loss')?.value) || 25;
+  const intervalSec = parseInt(document.getElementById('bot-interval')?.value) || 60;
+  const strategy = document.getElementById('bot-strategy')?.value || 'momentum';
+
+  return {
+    strategy,
+    porTrade: Math.max(1, Math.min(50, porTrade)),
+    maxOpenPositions: Math.max(1, Math.min(50, maxPos)),
+    minPriceToBuy: Math.max(0.01, minPriceCents / 100),
+    maxPriceToBuy: Math.min(1.0, maxPriceCents / 100),
+    profitTarget: Math.max(1, profitTarget),
+    stopLoss: Math.max(1, stopLoss),
+    intervalMs: Math.max(10000, intervalSec * 1000),
+  };
+}
+
+// ===== Bindings do Auto-Trader (Fase 9) =====
+function bindBotEvents() {
+  // Ligar/Desligar bot
+  const toggleBtn = document.getElementById('btn-bot-toggle');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      if (botIsRunning()) {
+        botStop();
+        showToast('Bot desligado', 'info');
+      } else {
+        // Pega config atual do formulário para garantir valores sincronizados
+        const formConfig = readBotConfigFromForm();
+        const currentConfig = getBotConfig();
+        const mergedConfig = { ...currentConfig, ...formConfig };
+        saveBotConfig(mergedConfig);
+
+        // Inicia bot passando função que retorna state.markets
+        botStart(() => state.markets, {
+          onTick: () => {
+            updateBotStatusUI();
+            // Atualiza header/portfolio se estiverem na tela
+            renderHeader();
+            if (state.activeTab === 'portfolio') renderPortfolio();
+            if (state.activeTab === 'bot') renderBotLog();
+            renderBotStats();
+          },
+          onAction: (actions) => {
+            // Quando o bot executa uma ação, atualiza a UI
+            renderHeader();
+            if (state.activeTab === 'bot') {
+              renderBotLog();
+              renderBotStats();
+            }
+            if (state.activeTab === 'portfolio') renderPortfolio();
+            if (state.activeTab === 'history') renderHistory();
+            if (state.activeTab === 'markets') renderMarketsPricesOnly();
+            // Toast com resumo
+            const summaries = actions.map(a => a.reason || a.action);
+            showToast(`🤖 Bot: ${summaries.join(', ')}`, 'success');
+          },
+        });
+        showToast('Bot ligado! negociando automaticamente.', 'success');
+      }
+      updateBotStatusUI();
+    });
+  }
+
+  // Salvar config
+  const saveBtn = document.getElementById('btn-bot-save-config');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      const formConfig = readBotConfigFromForm();
+      const currentConfig = getBotConfig();
+      const enabled = currentConfig.enabled;
+      const mergedConfig = { ...currentConfig, ...formConfig, enabled };
+      saveBotConfig(mergedConfig);
+      showToast('Config do bot salva!', 'success');
+
+      // Se o bot está rodando, reinicia com a nova config
+      if (botIsRunning()) {
+        botStop();
+        botStart(() => state.markets, {
+          onTick: () => {
+            updateBotStatusUI();
+            renderHeader();
+            if (state.activeTab === 'portfolio') renderPortfolio();
+            if (state.activeTab === 'bot') renderBotLog();
+            renderBotStats();
+          },
+          onAction: (actions) => {
+            renderHeader();
+            if (state.activeTab === 'bot') { renderBotLog(); renderBotStats(); }
+            if (state.activeTab === 'portfolio') renderPortfolio();
+            if (state.activeTab === 'history') renderHistory();
+            if (state.activeTab === 'markets') renderMarketsPricesOnly();
+            showToast(`🤖 Bot: ${actions.map(a => a.reason || a.action).join(', ')}`, 'success');
+          },
+        });
+      }
+    });
+  }
+
+  // Restaurar defaults
+  const resetConfigBtn = document.getElementById('btn-bot-reset-config');
+  if (resetConfigBtn) {
+    resetConfigBtn.addEventListener('click', () => {
+      const wasRunning = botIsRunning();
+      if (wasRunning) botStop();
+      resetBotConfig();
+      resetTickCount();
+      renderBotPanel();
+      showToast('Config restaurada para defaults', 'info');
+    });
+  }
+
+  // Limpar log
+  const clearLogBtn = document.getElementById('btn-bot-clear-log');
+  if (clearLogBtn) {
+    clearLogBtn.addEventListener('click', () => {
+      clearBotLog();
+      renderBotLog();
+      renderBotStats();
+      showToast('Log do bot limpo', 'info');
+    });
+  }
 }
 
 // ===== Start =====

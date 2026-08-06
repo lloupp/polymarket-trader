@@ -1329,3 +1329,301 @@ button:disabled, .btn:disabled {
     max-height: 200px;
   }
 }
+
+/* ===== Fase 9: Auto-Trader ===== */
+
+.bot-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Painel de Controle */
+.bot-control-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.bot-status-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.bot-status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-input);
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.bot-status-dot {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.bot-status-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.bot-status-indicator.running .bot-status-text {
+  color: var(--green);
+}
+
+.bot-status-indicator.running .bot-status-dot {
+  animation: bot-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes bot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.bot-tick-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.bot-tick-value {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.btn-bot-start {
+  background: var(--green);
+  color: #0a0e17;
+  border-color: var(--green);
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.btn-bot-start:hover {
+  background: #16a34a;
+}
+
+.btn-bot-start.running {
+  background: var(--red);
+  color: #fff;
+  border-color: var(--red);
+}
+
+.btn-bot-start.running:hover {
+  background: #dc2626;
+}
+
+/* Grid de Configuração */
+.bot-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.bot-config-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bot-config-label {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.bot-config-input,
+.bot-config-select {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+
+.bot-config-input:focus,
+.bot-config-select:focus {
+  border-color: var(--blue);
+}
+
+.bot-config-select {
+  cursor: pointer;
+}
+
+.bot-actions-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.btn-bot-save {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--blue);
+  border-color: var(--blue);
+}
+
+.btn-bot-save:hover {
+  background: rgba(59, 130, 246, 0.25);
+}
+
+/* Estatísticas do Bot */
+.bot-stats-top {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+/* Log de Ações */
+.bot-log-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bot-log-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.bot-log-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.bot-log-container::-webkit-scrollbar {
+  width: 6px;
+}
+.bot-log-container::-webkit-scrollbar-track {
+  background: var(--bg-input);
+}
+.bot-log-container::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.bot-log-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+  animation: fadeInUp 0.3s ease;
+}
+
+.bot-log-entry:last-child {
+  border-bottom: none;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bot-log-time {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 80px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bot-log-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 50px;
+  justify-content: center;
+}
+
+.bot-log-badge.buy {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--green);
+}
+
+.bot-log-badge.sell {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--red);
+}
+
+.bot-log-detail {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.bot-log-detail .bot-log-market {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bot-log-detail .bot-log-metric {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+
+/* Responsive — Auto-Trader */
+@media (max-width: 600px) {
+  .bot-config-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .bot-status-row {
+    gap: 10px;
+  }
+  .btn-bot-start {
+    margin-left: 0;
+    width: 100%;
+  }
+  .bot-log-entry {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .bot-log-time {
+    min-width: 0;
+  }
+}

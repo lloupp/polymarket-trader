@@ -32,6 +32,7 @@
       <button class="tab active" data-tab="markets" role="tab" aria-selected="true">Mercados</button>
       <button class="tab" data-tab="portfolio" role="tab" aria-selected="false">Portfolio</button>
       <button class="tab" data-tab="history" role="tab" aria-selected="false">Histórico</button>
+      <button class="tab" data-tab="bot" role="tab" aria-selected="false">🤖 Auto-Trader</button>
     </nav>
 
     <!-- Tab: Mercados -->
@@ -146,6 +147,105 @@
         <!-- Tabela de trades -->
         <div id="history-table-container" class="history-table-container">
           <!-- Tabela renderizada via JS (trades.js) -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab: Auto-Trader (Fase 9) -->
+    <section id="tab-bot" class="tab-content">
+      <div class="bot-content">
+        <!-- Painel de Controle -->
+        <div class="bot-control-panel">
+          <div class="bot-status-row">
+            <div class="bot-status-indicator" id="bot-status-indicator">
+              <span class="bot-status-dot" id="bot-status-dot">⚫</span>
+              <span class="bot-status-text" id="bot-status-text">Desligado</span>
+            </div>
+            <div class="bot-tick-info">
+              <span class="bot-tick-label">Ticks:</span>
+              <span class="bot-tick-value" id="bot-tick-count">0</span>
+            </div>
+            <button id="btn-bot-toggle" class="btn btn-bot-start">▶ Ligar Bot</button>
+          </div>
+
+          <div class="bot-config-grid">
+            <!-- Estratégia -->
+            <div class="bot-config-item">
+              <label class="bot-config-label" for="bot-strategy">Estratégia</label>
+              <select id="bot-strategy" class="bot-config-select">
+                <option value="momentum">Momentum (compra em alta)</option>
+                <option value="meanReversion">Reversão à Média</option>
+                <option value="bargainHunting">Comprar Barato Amplo</option>
+                <option value="random">Aleatória</option>
+              </select>
+            </div>
+
+            <!-- % por trade -->
+            <div class="bot-config-item">
+              <label class="bot-config-label" for="bot-por-trade">% do Saldo por Trade</label>
+              <input type="number" id="bot-por-trade" class="bot-config-input" min="1" max="50" step="1" value="5">
+            </div>
+
+            <!-- Max posições -->
+            <div class="bot-config-item">
+              <label class="bot-config-label" for="bot-max-positions">Máx. Posições Abertas</label>
+              <input type="number" id="bot-max-positions" class="bot-config-input" min="1" max="50" step="1" value="10">
+            </div>
+
+            <!-- Preço mínimo -->
+            <div class="bot-config-item">
+              <label class="bot-config-label" for="bot-min-price">Preço Mínimo (¢)</label>
+              <input type="number" id="bot-min-price" class="bot-config-input" min="1" max="99" step="1" value="5">
+            </div>
+
+            <!-- Preço máximo -->
+            <div class="bot-config-item">
+              <label class="bot-config-label" for="bot-max-price">Preço Máximo (¢)</label>
+              <input type="number" id="bot-max-price" class="bot-config-input" min="1" max="100" step="1" value="75">
+            </div>
+
+            <!-- Take-profit -->
+            <div class="bot-config-item">
+              <label class="bot-config-label" for="bot-profit-target">Take-Profit (%)</label>
+              <input type="number" id="bot-profit-target" class="bot-config-input" min="1" max="200" step="1" value="20">
+            </div>
+
+            <!-- Stop-loss -->
+            <div class="bot-config-item">
+              <label class="bot-config-label" for="bot-stop-loss">Stop-Loss (%)</label>
+              <input type="number" id="bot-stop-loss" class="bot-config-input" min="1" max="100" step="1" value="25">
+            </div>
+
+            <!-- Intervalo -->
+            <div class="bot-config-item">
+              <label class="bot-config-label" for="bot-interval">Intervalo (segundos)</label>
+              <input type="number" id="bot-interval" class="bot-config-input" min="10" max="3600" step="5" value="60">
+            </div>
+          </div>
+
+          <div class="bot-actions-row">
+            <button id="btn-bot-save-config" class="btn btn-bot-save">💾 Salvar Config</button>
+            <button id="btn-bot-reset-config" class="btn btn-cancel">↺ Restaurar Defaults</button>
+            <button id="btn-bot-clear-log" class="btn btn-cancel">🗑️ Limpar Log</button>
+          </div>
+        </div>
+
+        <!-- Estatísticas do bot -->
+        <div class="bot-stats-top" id="bot-stats-top">
+          <!-- Stat cards renderizadas via JS -->
+        </div>
+
+        <!-- Log de ações -->
+        <div class="bot-log-section">
+          <h3 class="bot-log-title">📝 Log de Ações do Bot</h3>
+          <div id="bot-log-container" class="bot-log-container">
+            <!-- Log entries renderizadas via JS -->
+          </div>
+          <div id="bot-log-empty" class="empty-state" style="display:none;">
+            <div class="empty-state-icon">🤖</div>
+            <div class="empty-state-title">Nenhuma ação registrada</div>
+            <div class="empty-state-desc">Ligue o bot e aguarde alguns ticks para ver as ações aqui.</div>
+          </div>
         </div>
       </div>
     </section>
