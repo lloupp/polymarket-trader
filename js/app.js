@@ -35,6 +35,7 @@ async function init() {
   bindEvents();
   bindTradeModals();
   bindHistoryEvents();  // Fase 6: filtros + CSV
+  bindKeyboardShortcuts();  // Fase 7: ESC fecha modais, Enter confirma
   await loadMarkets();
   renderHeader();
   renderMarkets();
@@ -171,7 +172,11 @@ function bindEvents() {
 // ===== Tabs =====
 function switchTab(tabName) {
   state.activeTab = tabName;
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
+  document.querySelectorAll('.tab').forEach(t => {
+    const isActive = t.dataset.tab === tabName;
+    t.classList.toggle('active', isActive);
+    t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === `tab-${tabName}`));
   // Renderiza a tab se necessário
   if (tabName === 'portfolio') renderPortfolio();
@@ -181,8 +186,13 @@ function switchTab(tabName) {
 // ===== Carregar mercados (Fase 3: Gamma API com fallback) =====
 async function loadMarkets() {
   const loading = document.getElementById('markets-loading');
+  const list = document.getElementById('markets-list');
   try {
-    if (loading) loading.style.display = 'block';
+    if (loading) {
+      loading.style.display = 'grid';
+      loading.innerHTML = renderSkeletons(6);
+    }
+    if (list) list.style.display = 'none';  // esconde a lista durante loading
     const markets = await fetchMarkets({ limit: 50 });
     state.markets = markets;
     state.filteredMarkets = [...state.markets];
@@ -214,6 +224,7 @@ async function loadMarkets() {
     showToast('Erro ao carregar mercados. Verifique a conexão.', 'error');
   } finally {
     if (loading) loading.style.display = 'none';
+    if (list) list.style.display = 'grid';  // restaura visibilidade da lista
   }
 }
 
@@ -416,6 +427,13 @@ function openBuyModal(marketId, outcome) {
 
   // Mostra o modal
   document.getElementById('modal-buy').style.display = 'flex';
+
+  // Fase 7: autofocus no input de quantidade
+  setTimeout(() => {
+    const inp = document.getElementById('buy-shares-input');
+    if (inp) inp.focus();
+    inp?.select();
+  }, 50);
 }
 
 /**
@@ -423,7 +441,8 @@ function openBuyModal(marketId, outcome) {
  */
 function updateBuyPreview() {
   if (!state.buyContext) return;
-  const shares = parseInt(document.getElementById('buy-shares-input').value) || 0;
+  const sharesRaw = document.getElementById('buy-shares-input').value;
+  const shares = Math.max(0, Math.floor(parseInt(sharesRaw) || 0));
   const totalCost = shares * state.buyContext.price;
   const balance = getBalance();
   const balanceAfter = balance - totalCost;
@@ -461,7 +480,9 @@ function closeBuyModal() {
  */
 function confirmBuy() {
   if (!state.buyContext) return;
-  const shares = parseInt(document.getElementById('buy-shares-input').value) || 0;
+  const sharesRaw = document.getElementById('buy-shares-input').value;
+  const shares = Math.max(0, Math.floor(parseInt(sharesRaw) || 0));
+  if (shares <= 0) { showToast('Quantidade inválida', 'error'); return; }
   const ctx = state.buyContext;
 
   const result = walletBuy({
@@ -538,6 +559,13 @@ function openSellModal(marketId, outcome) {
   updateSellPreview();
 
   document.getElementById('modal-sell').style.display = 'flex';
+
+  // Fase 7: autofocus no input de quantidade
+  setTimeout(() => {
+    const inp = document.getElementById('sell-shares-input');
+    if (inp) inp.focus();
+    inp?.select();
+  }, 50);
 }
 
 /**
@@ -545,7 +573,8 @@ function openSellModal(marketId, outcome) {
  */
 function updateSellPreview() {
   if (!state.sellContext) return;
-  const shares = parseInt(document.getElementById('sell-shares-input').value) || 0;
+  const sharesRaw = document.getElementById('sell-shares-input').value;
+  const shares = Math.max(0, Math.floor(parseInt(sharesRaw) || 0));
   const totalReturn = shares * state.sellContext.price;
   const pnl = (state.sellContext.price - state.sellContext.avgPrice) * shares;
   const pnlPercent = state.sellContext.avgPrice > 0
@@ -587,7 +616,9 @@ function closeSellModal() {
  */
 function confirmSell() {
   if (!state.sellContext) return;
-  const shares = parseInt(document.getElementById('sell-shares-input').value) || 0;
+  const sharesRaw = document.getElementById('sell-shares-input').value;
+  const shares = Math.max(0, Math.floor(parseInt(sharesRaw) || 0));
+  if (shares <= 0) { showToast('Quantidade inválida', 'error'); return; }
   const ctx = state.sellContext;
 
   const result = walletSell({
@@ -754,6 +785,26 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// ===== Fase 7: Skeleton loader =====
+function renderSkeletons(count = 4) {
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    html += `
+      <div class="skeleton-card">
+        <div class="skeleton-line long"></div>
+        <div class="skeleton-line short"></div>
+        <div class="skeleton-outcomes">
+          <div class="skeleton-btn"></div>
+          <div class="skeleton-btn"></div>
+        </div>
+        <div class="skeleton-line medium"></div>
+      </div>
+    `;
+  }
+  return html;
+}
+
+// ===== Fase 7: Toast com auto-dismiss animado =====
 function showToast(message, type = 'info') {
   const toast = document.getElementById('toast');
   if (!toast) return;
@@ -761,7 +812,46 @@ function showToast(message, type = 'info') {
   toast.className = `toast ${type}`;
   toast.style.display = 'block';
   clearTimeout(toast._timer);
-  toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3000);
+  // Auto-dismiss com fade-out
+  toast._timer = setTimeout(() => {
+    toast.classList.add('toast-leaving');
+    setTimeout(() => { toast.style.display = 'none'; toast.classList.remove('toast-leaving'); }, 300);
+  }, 3000);
+}
+
+// ===== Fase 7: Keyboard shortcuts =====
+function bindKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    // ESC fecha qualquer modal aberto
+    if (e.key === 'Escape') {
+      const modals = ['modal-reset', 'modal-buy', 'modal-sell'];
+      for (const id of modals) {
+        const modal = document.getElementById(id);
+        if (modal && modal.style.display === 'flex') {
+          if (id === 'modal-buy') closeBuyModal();
+          else if (id === 'modal-sell') closeSellModal();
+          else modal.style.display = 'none';
+          break;
+        }
+      }
+    }
+    // Enter confirma no modal de compra (se o input de quantidade estiver focado)
+    if (e.key === 'Enter' && state.buyContext) {
+      const activeEl = document.activeElement;
+      if (activeEl && activeEl.id === 'buy-shares-input') {
+        e.preventDefault();
+        if (!document.getElementById('buy-confirm').disabled) confirmBuy();
+      }
+    }
+    // Enter confirma no modal de venda
+    if (e.key === 'Enter' && state.sellContext) {
+      const activeEl = document.activeElement;
+      if (activeEl && activeEl.id === 'sell-shares-input') {
+        e.preventDefault();
+        if (!document.getElementById('sell-confirm').disabled) confirmSell();
+      }
+    }
+  });
 }
 
 // ===== Start =====

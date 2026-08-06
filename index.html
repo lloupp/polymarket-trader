@@ -23,15 +23,15 @@
           <span class="pnl-label">P&L Total</span>
           <span id="header-pnl" class="pnl-value">$0.00 (+0.00%)</span>
         </div>
-        <button id="btn-reset" class="btn btn-reset" title="Reiniciar carteira">⟲ Reset</button>
+        <button id="btn-reset" class="btn btn-reset" title="Reiniciar carteira" aria-label="Reiniciar carteira">⟲ Reset</button>
       </div>
     </header>
 
     <!-- Tabs -->
-    <nav class="tabs">
-      <button class="tab active" data-tab="markets">Mercados</button>
-      <button class="tab" data-tab="portfolio">Portfolio</button>
-      <button class="tab" data-tab="history">Histórico</button>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="markets" role="tab" aria-selected="true">Mercados</button>
+      <button class="tab" data-tab="portfolio" role="tab" aria-selected="false">Portfolio</button>
+      <button class="tab" data-tab="history" role="tab" aria-selected="false">Histórico</button>
     </nav>
 
     <!-- Tab: Mercados -->
@@ -52,11 +52,17 @@
         <button id="btn-refresh-prices" class="btn btn-refresh" title="Atualizar preços agora">⟳ Atualizar preços</button>
       </div>
       <div id="refresh-indicator" class="refresh-indicator">Carregando...</div>
-      <div id="markets-list" class="markets-list">
+      <div id="markets-list" class="markets-list" aria-live="polite">
         <!-- Cards de mercado renderizados via JS -->
       </div>
-      <div id="markets-loading" class="loading-msg" style="display:none;">Carregando mercados...</div>
-      <div id="markets-empty" class="empty-msg" style="display:none;">Nenhum mercado encontrado.</div>
+      <div id="markets-loading" class="markets-skeleton-list" style="display:none;">
+        <!-- Skeleton cards renderizados via JS -->
+      </div>
+      <div id="markets-empty" class="empty-state" style="display:none;">
+        <div class="empty-state-icon">🔍</div>
+        <div class="empty-state-title">Nenhum mercado encontrado</div>
+        <div class="empty-state-desc">Tente ajustar a busca ou o filtro de categoria para ver mais mercados.</div>
+      </div>
     </section>
 
     <!-- Tab: Portfolio -->
@@ -93,11 +99,13 @@
           <div class="portfolio-legend" id="port-allocation-legend"></div>
         </div>
 
-        <div id="positions-list" class="positions-list">
+        <div id="positions-list" class="positions-list" aria-live="polite">
           <!-- Posições renderizadas via JS -->
         </div>
-        <div id="portfolio-empty" class="empty-msg" style="display:none;">
-          Você não tem posições abertas. Compre shares na aba Mercados.
+        <div id="portfolio-empty" class="empty-state" style="display:none;">
+          <div class="empty-state-icon">📈</div>
+          <div class="empty-state-title">Sem posições abertas</div>
+          <div class="empty-state-desc">Compre shares na aba Mercados para começar a acompanhar seu portfólio aqui.</div>
         </div>
       </div>
     </section>
@@ -129,8 +137,10 @@
         </div>
 
         <!-- Mensagem vazia -->
-        <div id="history-empty" class="empty-msg" style="display:none;">
-          Você ainda não fez nenhuma operação. Compre shares na aba Mercados para começar.
+        <div id="history-empty" class="empty-state" style="display:none;">
+          <div class="empty-state-icon">📋</div>
+          <div class="empty-state-title">Nenhuma operação registrada</div>
+          <div class="empty-state-desc">Compre shares na aba Mercados para começar a operar. Seu histórico de trades aparecerá aqui.</div>
         </div>
 
         <!-- Tabela de trades -->
@@ -141,9 +151,9 @@
     </section>
 
     <!-- Modal de Reset -->
-    <div id="modal-reset" class="modal-overlay" style="display:none;">
+    <div id="modal-reset" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modal-reset-title">
       <div class="modal">
-        <h3>Reiniciar Carteira</h3>
+        <h3 id="modal-reset-title">Reiniciar Carteira</h3>
         <p>Tem certeza? Isso apaga todas as posições, trades e reseta o saldo para $1,000.00.</p>
         <div class="modal-actions">
           <button class="btn btn-cancel" id="reset-cancel">Cancelar</button>
@@ -153,7 +163,7 @@
     </div>
 
     <!-- Modal de Compra -->
-    <div id="modal-buy" class="modal-overlay" style="display:none;">
+    <div id="modal-buy" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true">
       <div class="modal trade-modal">
         <h3>Comprar Shares</h3>
         <div class="trade-modal-header">
@@ -191,7 +201,7 @@
     </div>
 
     <!-- Modal de Venda -->
-    <div id="modal-sell" class="modal-overlay" style="display:none;">
+    <div id="modal-sell" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true">
       <div class="modal trade-modal">
         <h3>Vender Shares</h3>
         <div class="trade-modal-header">

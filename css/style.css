@@ -1061,6 +1061,219 @@ body {
   display: none;
 }
 
+/* ===== Fase 7 — Polimento: Animações ===== */
+
+/* Fade-in para cards de mercado e posições */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.market-card, .position-card {
+  animation: fadeInUp 0.25s ease-out backwards;
+}
+
+/* Stagger animation para cards — aplicado via JS nth-child fallback */
+.markets-list .market-card:nth-child(1) { animation-delay: 0.02s; }
+.markets-list .market-card:nth-child(2) { animation-delay: 0.04s; }
+.markets-list .market-card:nth-child(3) { animation-delay: 0.06s; }
+.markets-list .market-card:nth-child(4) { animation-delay: 0.08s; }
+.markets-list .market-card:nth-child(5) { animation-delay: 0.10s; }
+.markets-list .market-card:nth-child(6) { animation-delay: 0.12s; }
+
+/* Transição suave entre tabs */
+.tab-content.active {
+  animation: tabFadeIn 0.2s ease-out;
+}
+
+@keyframes tabFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Pulse no P&L quando muda */
+@keyframes pnlPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.pnl-value.positive, .pnl-value.negative {
+  animation: pnlPulse 0.4s ease-out;
+}
+
+/* Modal entra com scale suave */
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.modal {
+  animation: modalIn 0.15s ease-out;
+}
+
+/* Toast com slide e fade saída */
+@keyframes toastOut {
+  from { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to { opacity: 0; transform: translateX(-50%) translateY(20px); }
+}
+
+.toast.toast-leaving {
+  animation: toastOut 0.3s ease-in forwards;
+}
+
+/* Skeleton loader para cards de mercado */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Grid do skeleton loader (mesmo grid dos market cards) */
+.markets-skeleton-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.skeleton-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  height: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skeleton-line {
+  height: 14px;
+  border-radius: 7px;
+  background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-hover) 50%, var(--bg-card) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-line.short { width: 40%; }
+.skeleton-line.medium { width: 70%; }
+.skeleton-line.long { width: 100%; }
+
+.skeleton-outcomes {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.skeleton-btn {
+  flex: 1;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--bg-input) 25%, var(--bg-hover) 50%, var(--bg-input) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Empty state bonito */
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-secondary);
+}
+
+.empty-state-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+  opacity: 0.6;
+}
+
+.empty-state-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.empty-state-desc {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+/* Spinner */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* Stat card hover effect */
+.stat-card {
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.stat-card:hover {
+  border-color: var(--blue);
+  transform: translateY(-1px);
+}
+
+/* Tab indicator slide */
+.tab {
+  position: relative;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+/* Focus visible para accesibilidade */
+.btn:focus-visible,
+.tab:focus-visible,
+.outcome-btn:focus-visible,
+.filter-select:focus-visible,
+.search-input:focus-visible,
+.trade-input:focus-visible,
+.history-filter-btn:focus-visible,
+.position-sell-btn:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* Botão com toque maior no mobile */
+@media (hover: none) {
+  .outcome-btn, .btn, .history-filter-btn, .position-sell-btn {
+    min-height: 44px;
+  }
+}
+
+/* P&L positivo/negativo no portfolio */
+.pnl-positive { color: var(--green) !important; }
+.pnl-negative { color: var(--red) !important; }
+
+/* Scrollbar styling */
+::-webkit-scrollbar { height: 6px; width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+/* Disabled state com cursor e opacidade */
+button:disabled, .btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Modal overlay com backdrop blur */
+.modal-overlay {
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 600px) {
   .header {
@@ -1103,5 +1316,16 @@ body {
   }
   .history-chart-canvas {
     height: 180px;
+  }
+  .portfolio-chart-section {
+    flex-direction: column;
+    align-items: center;
+  }
+  .portfolio-chart-wrapper {
+    flex: 0 0 auto;
+  }
+  .portfolio-legend {
+    width: 100%;
+    max-height: 200px;
   }
 }
