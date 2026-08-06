@@ -1,5 +1,13 @@
-node_modules/
-*.log
+# OS
 .DS_Store
-.env
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Project
 data/tmp/
