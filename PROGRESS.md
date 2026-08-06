@@ -3,7 +3,7 @@
 ## Skill de referência: `polymarket-trader-builder`
 TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cron).
 
-## Status: Fase 8 concluída — próxima é Fase 9 (Auto-Trader)
+## Status: Fase 9 concluída — projeto completo!
 
 ## Fases
 
@@ -114,16 +114,27 @@ TODAS as fases devem seguir a skill `polymarket-trader-builder` (carregada no cr
 - Commit: `docs: atualiza README + .gitignore para deploy GitHub Pages` (hash `9e309ca`)
 - Commit: `deploy: GitHub Pages habilitado via API`
 
-### Fase 9 — Motor de Negociação Autônoma (Auto-Trader) [PENDENTE]
-- Implementar js/bot.js: ciclo de avaliação via setInterval
-- Estratégias: momentum, reversão à média, comprar barato amplo, aleatória
-- Gestão de posições: take-profit e stop-loss automáticos
-- Painel de controle: ligar/desligar bot, escolher estratégia, ajustar limites (porTrade, maxOpenPositions, profitTarget, stopLoss, intervalMs)
-- Log de ações do bot (pm_bot_log) com timestamp
-- Histórico de preços por mercado (pm_market_history) para estratégia momentum
-- Integração com wallet.js (comprar/vender)
-- Testes completos
-- Commit: `feat: motor de negociação autônoma`
+### Fase 9 — Motor de Negociação Autônoma (Auto-Trader) [CONCLUÍDO — 2026-08-06]
+- ✅ Implementar js/bot.js: ciclo de avaliação via setInterval (755 linhas)
+- ✅ Estratégias: momentum (compra em alta via histórico de preços), reversão à média
+  (compra < 25¢), comprar barato amplo (distribui em < 15¢), aleatória (toy: buy/sell random)
+- ✅ Gestão de posições: take-profit e stop-loss automáticos (vende tudo quando P&L atinge limites)
+- ✅ Painel de controle: ligar/desligar bot, escolher estratégia, ajustar limites
+  (porTrade 5%, maxOpenPositions 10, minPriceToBuy 5¢, maxPriceToBuy 75¢,
+  profitTarget 20%, stopLoss 25%, intervalMs 60s — todos configuráveis via UI)
+- ✅ Log de ações do bot (`pm_bot_log`) com timestamp, action, market, outcome, shares, price, reason
+- ✅ Histórico de preços por mercado (`pm_market_history`) para estratégia momentum
+  (max 20 mercados × 30 entradas por mercado para economizar storage)
+- ✅ Integração com wallet.js (comprar/vender) e portfolio.js (P&L via computePositionMetrics)
+- ✅ Callbacks onTick/onAction para UI atualizar header/portfolio/histórico/log em tempo real
+- ✅ Stats do bot: total de ações, compras, vendas, última ação
+- ✅ Reset da carteira para o bot automaticamente antes de resetar
+- ✅ Bot não roda se aba não visível (document.hidden check)
+- ✅ CSS: painel de controle escuro, grid responsivo, indicador de status com pulse animation,
+  log scrollável com badges de tipo, fadeInUp nos entries
+- ✅ Testes lógicos: 41/41 passaram (config padrão, save/update/reset, estratégias
+  meanReversion/bargainHunting/random, market history, bot stats, localStorage pm_ prefix)
+- Commit: `feat: motor de negociação autônoma — Fase 9 (Auto-Trader)` (hash `1435944`)
 
 ## Regras do cron
 1. Ler PROGRESS.md
