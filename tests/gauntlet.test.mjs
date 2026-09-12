@@ -14,6 +14,7 @@ globalThis.localStorage = new MemoryStorage();
 const wallet = await import('../js/wallet.js');
 const portfolio = await import('../js/portfolio.js');
 const api = await import('../js/api.js');
+const trades = await import('../js/trades.js');
 
 test('compra preserva equity quando preço não muda', () => {
   wallet.reset(1000);
@@ -98,4 +99,33 @@ test('refreshPrices preserva a referência entregue à aplicação', async () =>
   assert.equal(original[0].outcomes[0].price, 0.4);
   assert.equal(await api.refreshPrices(), true);
   assert.equal(original[0].outcomes[0].price, 0.65);
+});
+
+test('estatísticas usam custo médio em vendas parciais', () => {
+  const history = [
+    { marketId: 'm1', outcome: 'Yes', side: 'buy', shares: 10, price: 0.4, totalCost: 4, timestamp: '2026-01-01T00:00:00Z' },
+    { marketId: 'm1', outcome: 'Yes', side: 'buy', shares: 10, price: 0.6, totalCost: 6, timestamp: '2026-01-01T00:01:00Z' },
+    { marketId: 'm1', outcome: 'Yes', side: 'sell', shares: 10, price: 0.7, totalCost: 7, timestamp: '2026-01-01T00:02:00Z' }
+  ];
+  const stats = trades.computeStats(history);
+  assert.equal(stats.totalPnL, 2);
+  assert.equal(stats.winRate, 100);
+});
+
+test('equity curve reduz custo-base, não receita de venda', () => {
+  const history = [
+    { marketId: 'm1', outcome: 'Yes', side: 'buy', shares: 10, price: 0.5, totalCost: 5, timestamp: '2026-01-01T00:00:00Z' },
+    { marketId: 'm1', outcome: 'Yes', side: 'sell', shares: 5, price: 0.8, totalCost: 4, timestamp: '2026-01-01T00:01:00Z' }
+  ];
+  const curve = trades.buildEquityCurve(history, 1000);
+  assert.equal(curve.at(-1).equity, 1001.5);
+});
+
+test('tabela de trades escapa atributos HTML', () => {
+  const html = trades.renderTradesTable([{
+    timestamp: '2026-01-01T00:00:00Z', side: 'buy', marketQuestion: '"><img src=x onerror=alert(1)>',
+    outcome: 'Yes', shares: 1, price: 0.5, totalCost: 0.5
+  }]);
+  assert.equal(html.includes('<img src=x'), false);
+  assert.equal(html.includes('&quot;&gt;&lt;img'), true);
 });
