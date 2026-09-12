@@ -10,6 +10,7 @@ class MemoryStorage {
 }
 
 globalThis.localStorage = new MemoryStorage();
+const closeTo = (actual, expected, epsilon = 1e-9) => assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} ≉ ${expected}`);
 
 const wallet = await import('../js/wallet.js');
 const portfolio = await import('../js/portfolio.js');
@@ -22,10 +23,10 @@ test('compra preserva equity quando preço não muda', () => {
   assert.equal(result.success, true);
   const markets = [{ id: 'm1', outcomes: [{ name: 'Yes', price: 0.4 }] }];
   const summary = portfolio.computePortfolioSummary(markets);
-  assert.equal(summary.balance, 960);
-  assert.equal(summary.currentValue, 40);
-  assert.equal(summary.totalEquity, 1000);
-  assert.equal(summary.unrealizedPnl, 0);
+  closeTo(summary.balance, 960);
+  closeTo(summary.currentValue, 40);
+  closeTo(summary.totalEquity, 1000);
+  closeTo(summary.unrealizedPnl, 0);
 });
 
 test('P&L agregado reflete mark-to-market', () => {
@@ -33,8 +34,8 @@ test('P&L agregado reflete mark-to-market', () => {
   wallet.buy({ marketId: 'm1', marketQuestion: 'Q?', outcome: 'Yes', shares: 100, price: 0.4 });
   const markets = [{ id: 'm1', outcomes: [{ name: 'Yes', price: 0.55 }] }];
   const summary = portfolio.computePortfolioSummary(markets);
-  assert.equal(summary.totalEquity, 1015);
-  assert.equal(summary.unrealizedPnl, 15);
+  closeTo(summary.totalEquity, 1015);
+  closeTo(summary.unrealizedPnl, 15);
 });
 
 test('wallet rejeita quantidades e preços não finitos', () => {
@@ -96,9 +97,9 @@ test('refreshPrices preserva a referência entregue à aplicação', async () =>
   };
 
   const original = await api.fetchMarkets({ force: true });
-  assert.equal(original[0].outcomes[0].price, 0.4);
+  closeTo(original[0].outcomes[0].price, 0.4);
   assert.equal(await api.refreshPrices(), true);
-  assert.equal(original[0].outcomes[0].price, 0.65);
+  closeTo(original[0].outcomes[0].price, 0.65);
 });
 
 test('estatísticas usam custo médio em vendas parciais', () => {
@@ -108,8 +109,8 @@ test('estatísticas usam custo médio em vendas parciais', () => {
     { marketId: 'm1', outcome: 'Yes', side: 'sell', shares: 10, price: 0.7, totalCost: 7, timestamp: '2026-01-01T00:02:00Z' }
   ];
   const stats = trades.computeStats(history);
-  assert.equal(stats.totalPnL, 2);
-  assert.equal(stats.winRate, 100);
+  closeTo(stats.totalPnL, 2);
+  closeTo(stats.winRate, 100);
 });
 
 test('equity curve reduz custo-base, não receita de venda', () => {
@@ -118,7 +119,7 @@ test('equity curve reduz custo-base, não receita de venda', () => {
     { marketId: 'm1', outcome: 'Yes', side: 'sell', shares: 5, price: 0.8, totalCost: 4, timestamp: '2026-01-01T00:01:00Z' }
   ];
   const curve = trades.buildEquityCurve(history, 1000);
-  assert.equal(curve.at(-1).equity, 1001.5);
+  closeTo(curve.at(-1).equity, 1001.5);
 });
 
 test('tabela de trades escapa atributos HTML', () => {
