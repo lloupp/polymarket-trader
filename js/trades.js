@@ -201,6 +201,25 @@ export function drawPerformanceChart(canvas, data, initialBalance) {
     ctx.fillStyle = safeData[i].action === 'buy' ? CHART_COLORS.dotBuy : CHART_COLORS.dotSell;
     ctx.beginPath(); ctx.arc(x(i), y(safeData[i].equity), 3, 0, Math.PI * 2); ctx.fill();
   }
+
+  // Mantém orientação temporal do gráfico sem poluir quando há muitos pontos.
+  ctx.fillStyle = CHART_COLORS.text;
+  ctx.font = '0.6rem sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  const labelIndices = safeData.length <= 3
+    ? safeData.map((_, i) => i)
+    : [0, Math.floor(safeData.length / 2), safeData.length - 1];
+  for (const i of labelIndices) {
+    if (i === 0 || !safeData[i].timestamp) {
+      ctx.fillText('Início', x(i), top + plotH + 6);
+      continue;
+    }
+    const dt = new Date(safeData[i].timestamp);
+    const label = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' +
+      dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    ctx.fillText(label, x(i), top + plotH + 6);
+  }
 }
 
 function csvCell(value) {
