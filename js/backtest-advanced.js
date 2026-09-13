@@ -44,7 +44,7 @@ export function normalizeWalkForwardOptions(datasetLength, input = {}, coreConfi
   const n = Math.max(0, Math.floor(Number(datasetLength) || 0));
   const cfg = normalizeBacktestConfig(coreConfig);
   const trainPct = clamp(input.trainPct, 20, 80, 50);
-  const testPct = clamp(input.testPct, 5, 35, 15);
+  const testPct = clamp(input.testPct, 10, 35, 15);
   let trainBars = Math.max(cfg.warmupBars + 5, Math.floor(n * trainPct / 100));
   let testBars = Math.max(3, Math.floor(n * testPct / 100));
   if (trainBars + testBars > n) {
@@ -244,7 +244,7 @@ export function walkForwardValidate(inputDataset, inputConfig = {}, inputOptions
       alphaPct: returnPct - benchmarkReturnPct,
     });
   }
-  if (!folds.length) throw new Error('Nenhuma janela walk-forward pôde ser construída.');
+  if (folds.length < 2) throw new Error('Walk-forward rigoroso requer pelo menos dois folds externos.');
 
   const strategyCurve = stitchCurves(folds, fold => fold.result.validationEquityCurve, config.initialBalance);
   const benchmarkCurve = stitchCurves(folds, fold => fold.benchmark.curve, config.initialBalance);
