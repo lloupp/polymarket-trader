@@ -2,7 +2,7 @@ name: Quality Gate
 
 on:
   push:
-    branches: [master, gauntlet-9-10, gauntlet-10-10]
+    branches: [master, 'gauntlet-*']
   pull_request:
     branches: [master]
 
