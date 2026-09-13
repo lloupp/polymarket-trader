@@ -642,7 +642,12 @@ function renderBotLog() {
 }
 
 function readBotConfigFromForm() {
-  const read = (id, fallback) => Number(document.getElementById(id)?.value) || fallback;
+  const read = (id, fallback) => {
+    const raw = document.getElementById(id)?.value;
+    if (raw === undefined || raw === null || raw === '') return fallback;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : fallback;
+  };
   let minPrice = Math.max(0.01, Math.min(0.99, read('bot-min-price', 5) / 100));
   let maxPrice = Math.max(0.01, Math.min(1, read('bot-max-price', 75) / 100));
   if (minPrice > maxPrice) [minPrice, maxPrice] = [maxPrice, minPrice];
