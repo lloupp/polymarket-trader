@@ -1,882 +1,490 @@
-// bot.js — Motor de Negociação Autônoma (Auto-Trader)
-// Fase 9: bot que negocia sozinho na carteira fictícia via setInterval.
-// Estratégias: momentum, reversão à média, comprar barato amplo, value betting
-//              (EV), Kelly criterion (½-Kelly), aleatória.
-// Gestão de posições: take-profit e stop-loss automáticos.
-// Persistência: pm_bot_config (config), pm_bot_log (log de ações),
-//                pm_market_history (histórico de preços para momentum/Kelly/EV).
+// bot.js — Auto-Trader de simulação com estratégias e guardrails de risco
 
 import { saveToStorage, loadFromStorage } from './utils.js';
 import { getWallet, buy as walletBuy, sell as walletSell, getPositions, getPosition } from './wallet.js';
-import { computePositionMetrics, getCurrentPrice } from './portfolio.js';
+import { computePositionMetrics, computePortfolioSummary } from './portfolio.js';
+import {
+  getMarketHistory,
+  getPriceHistory,
+  clearMarketHistory,
+  recordMarketSnapshots,
+} from './market-history.js';
 
-// ===== Chaves de localStorage =====
 const BOT_CONFIG_KEY = 'bot_config';
 const BOT_LOG_KEY = 'bot_log';
-const MARKET_HISTORY_KEY = 'market_history';
 const MAX_LOG_ENTRIES = 500;
-const MAX_HISTORY_PER_MARKET = 30;
+const STRATEGIES = new Set(['momentum', 'meanReversion', 'bargainHunting', 'valueBetting', 'kelly', 'random']);
 
-// ===== Configuração padrão =====
 const DEFAULT_CONFIG = {
   enabled: false,
-  strategy: 'momentum',        // 'momentum' | 'meanReversion' | 'bargainHunting' | 'valueBetting' | 'kelly' | 'random'
-  porTrade: 5,                 // % do saldo por operação
+  strategy: 'momentum',
+  porTrade: 5,
   maxOpenPositions: 10,
   minPriceToBuy: 0.05,
   maxPriceToBuy: 0.75,
-  profitTarget: 20,            // % de lucro para vender (take-profit)
-  stopLoss: 25,                // % de prejuízo para vender (stop-loss)
-  intervalMs: 60_000,          // intervalo de avaliação (ms)
+  profitTarget: 20,
+  stopLoss: 25,
+  intervalMs: 60_000,
+  maxDailyLossPct: 5,
+  maxMarketExposurePct: 15,
+  maxPositionPct: 10,
+  cooldownAfterLossMin: 10,
 };
 
-// ===== Estado do bot (não persistido) =====
 let _intervalHandle = null;
 let _tickCount = 0;
-let _onTickCallback = null;    // callback para UI atualizar após cada tick
-let _onActionCallback = null;  // callback para UI quando uma ação é executada
+let _onTickCallback = null;
+let _onActionCallback = null;
 
-// ============================================================
-//  CONFIG
-// ============================================================
+const clamp = (value, min, max, fallback) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
+};
 
-/**
- * Lê a config do bot do localStorage (ou cria com defaults).
- * @returns {Object} — config do bot
- */
+function normalizeConfig(config = {}) {
+  const merged = { ...DEFAULT_CONFIG, ...(config && typeof config === 'object' ? config : {}) };
+  let minPrice = clamp(merged.minPriceToBuy, 0.01, 0.99, DEFAULT_CONFIG.minPriceToBuy);
+  let maxPrice = clamp(merged.maxPriceToBuy, 0.01, 1, DEFAULT_CONFIG.maxPriceToBuy);
+  if (minPrice > maxPrice) [minPrice, maxPrice] = [maxPrice, minPrice];
+  return {
+    enabled: Boolean(merged.enabled),
+    strategy: STRATEGIES.has(merged.strategy) ? merged.strategy : DEFAULT_CONFIG.strategy,
+    porTrade: clamp(merged.porTrade, 1, 50, DEFAULT_CONFIG.porTrade),
+    maxOpenPositions: Math.round(clamp(merged.maxOpenPositions, 1, 50, DEFAULT_CONFIG.maxOpenPositions)),
+    minPriceToBuy: minPrice,
+    maxPriceToBuy: maxPrice,
+    profitTarget: clamp(merged.profitTarget, 1, 200, DEFAULT_CONFIG.profitTarget),
+    stopLoss: clamp(merged.stopLoss, 1, 100, DEFAULT_CONFIG.stopLoss),
+    intervalMs: Math.round(clamp(merged.intervalMs, 10_000, 3_600_000, DEFAULT_CONFIG.intervalMs)),
+    maxDailyLossPct: clamp(merged.maxDailyLossPct, 0.5, 50, DEFAULT_CONFIG.maxDailyLossPct),
+    maxMarketExposurePct: clamp(merged.maxMarketExposurePct, 1, 100, DEFAULT_CONFIG.maxMarketExposurePct),
+    maxPositionPct: clamp(merged.maxPositionPct, 1, 100, DEFAULT_CONFIG.maxPositionPct),
+    cooldownAfterLossMin: clamp(merged.cooldownAfterLossMin, 0, 1_440, DEFAULT_CONFIG.cooldownAfterLossMin),
+  };
+}
+
 export function getConfig() {
-  return loadFromStorage(BOT_CONFIG_KEY, { ...DEFAULT_CONFIG });
+  return normalizeConfig(loadFromStorage(BOT_CONFIG_KEY, { ...DEFAULT_CONFIG }));
 }
 
-/**
- * Salva a config do bot.
- * @param {Object} config — nova config
- */
 export function saveConfig(config) {
-  saveToStorage(BOT_CONFIG_KEY, config);
-  return config;
+  const normalized = normalizeConfig(config);
+  saveToStorage(BOT_CONFIG_KEY, normalized);
+  return normalized;
 }
 
-/**
- * Atualiza campos específicos da config (merge).
- * @param {Object} partial — { campo: valor, ... }
- * @returns {Object} — config atualizada
- */
 export function updateConfig(partial) {
-  const current = getConfig();
-  const merged = { ...current, ...partial };
-  saveToStorage(BOT_CONFIG_KEY, merged);
-  return merged;
+  return saveConfig({ ...getConfig(), ...(partial || {}) });
 }
 
-/**
- * Reseta a config para os defaults.
- * @returns {Object}
- */
 export function resetConfig() {
   return saveConfig({ ...DEFAULT_CONFIG });
 }
 
-// ============================================================
-//  LOG
-// ============================================================
-
-/**
- * Lê o log de ações do bot (mais recente primeiro).
- * @param {number} limit — número máximo de entradas (default 50)
- * @returns {Array} — [{ timestamp, action, market, outcome, shares, price, note }]
- */
 export function getLog(limit = 50) {
   const log = loadFromStorage(BOT_LOG_KEY, []);
-  if (!Array.isArray(log)) return [];
-  return log.slice(0, limit);
+  return Array.isArray(log) ? log.slice(0, Math.max(0, limit)) : [];
 }
 
-/**
- * Adiciona uma entrada ao log do bot.
- * @param {Object} entry — { action, market, outcome, shares, price, note }
- */
 function addLogEntry(entry) {
-  const log = loadFromStorage(BOT_LOG_KEY, []);
-  if (!Array.isArray(log)) {
-    // log corrompido — reinicia
-    const fresh = [];
-    fresh.push({ timestamp: new Date().toISOString(), ...entry });
-    saveToStorage(BOT_LOG_KEY, fresh);
-    return;
-  }
+  const current = loadFromStorage(BOT_LOG_KEY, []);
+  const log = Array.isArray(current) ? current : [];
   log.unshift({ timestamp: new Date().toISOString(), ...entry });
-  // Trunca para evitar exceder quota
   if (log.length > MAX_LOG_ENTRIES) log.length = MAX_LOG_ENTRIES;
   saveToStorage(BOT_LOG_KEY, log);
 }
 
-/**
- * Limpa o log do bot.
- */
 export function clearLog() {
   saveToStorage(BOT_LOG_KEY, []);
 }
 
-// ============================================================
-//  HISTÓRICO DE PREÇOS (para estratégia momentum)
-// ============================================================
-
-/**
- * Lê o histórico de preços por mercado.
- * @returns {Object} — { marketId: [{ timestamp, price }, ...] }
- */
-export function getMarketHistory() {
-  const hist = loadFromStorage(MARKET_HISTORY_KEY, {});
-  return (hist && typeof hist === 'object') ? hist : {};
-}
-
-/**
- * Registra o preço atual de um mercado no histórico.
- * Mantém no máximo MAX_HISTORY_PER_MARKET entradas por mercado.
- * @param {string} marketId
- * @param {string} outcome
- * @param {number} price
- */
-function recordPrice(marketId, outcome, price) {
-  const hist = getMarketHistory();
-  const key = `${marketId}|${outcome}`;
-  if (!Array.isArray(hist[key])) hist[key] = [];
-  hist[key].push({ timestamp: Date.now(), price });
-  if (hist[key].length > MAX_HISTORY_PER_MARKET) {
-    hist[key] = hist[key].slice(-MAX_HISTORY_PER_MARKET);
+function eligibleOutcomes(markets, config) {
+  const list = [];
+  for (const market of Array.isArray(markets) ? markets : []) {
+    for (const outcome of Array.isArray(market?.outcomes) ? market.outcomes : []) {
+      const price = Number(outcome?.price);
+      if (!outcome?.name || !Number.isFinite(price)) continue;
+      if (price < config.minPriceToBuy || price > config.maxPriceToBuy) continue;
+      list.push({ market, outcome: { ...outcome, price } });
+    }
   }
-  saveToStorage(MARKET_HISTORY_KEY, hist);
+  return list;
 }
 
-/**
- * Obtém o histórico de preços de um mercado+outcome.
- * @param {string} marketId
- * @param {string} outcome
- * @returns {Array} — [{ timestamp, price }, ...]
- */
-export function getPriceHistory(marketId, outcome) {
-  const hist = getMarketHistory();
-  return hist[`${marketId}|${outcome}`] || [];
-}
-
-/**
- * Limpa todo o histórico de preços.
- */
-export function clearMarketHistory() {
-  saveToStorage(MARKET_HISTORY_KEY, {});
-}
-
-// ============================================================
-//  ESTRATÉGIAS
-// ============================================================
-
-/**
- * Estratégia Momentum: compra Yes quando o preço está subindo.
- * Analisa os últimos preços registrados e procura tendência de alta.
- *
- * @param {Array} markets — mercados disponíveis (state.markets)
- * @param {Object} config — config do bot
- * @returns {Object|null} — { marketId, outcome, price, reason } ou null
- */
 function strategyMomentum(markets, config) {
   const candidates = [];
-
-  for (const m of markets) {
-    for (const o of m.outcomes) {
-      if (!o.name || o.price == null) continue;
-      // Filtra por range de preço
-      if (o.price < config.minPriceToBuy || o.price > config.maxPriceToBuy) continue;
-
-      const history = getPriceHistory(m.id, o.name);
-      if (history.length < 3) continue; // precisa de histórico mínimo
-
-      // Compara preço atual com preço de 2 ticks atrás
-      const prevPrice = history[history.length - 3].price;
-      const currentPrice = o.price;
-      const priceChange = currentPrice - prevPrice;
-
-      // Tendência de alta: preço subiu pelo menos 2 centavos (0.02)
-      if (priceChange >= 0.02) {
-        candidates.push({
-          marketId: m.id,
-          marketQuestion: m.question,
-          outcome: o.name,
-          price: currentPrice,
-          reason: `Momentum: ${o.name} subiu ${(priceChange * 100).toFixed(1)}¢ nos últimos ticks`,
-          score: priceChange,
-        });
-      }
+  for (const { market, outcome } of eligibleOutcomes(markets, config)) {
+    const history = getPriceHistory(market.id, outcome.name);
+    if (history.length < 3) continue;
+    const previous = Number(history.at(-3)?.price);
+    const change = outcome.price - previous;
+    if (Number.isFinite(change) && change >= 0.02) {
+      candidates.push({
+        marketId: market.id,
+        marketQuestion: market.question,
+        outcome: outcome.name,
+        price: outcome.price,
+        score: change,
+        reason: `Momentum: ${outcome.name} subiu ${(change * 100).toFixed(1)}¢ nos últimos pontos`,
+      });
     }
   }
-
-  if (candidates.length === 0) return null;
-
-  // Escolhe o com maior score (maior subida)
   candidates.sort((a, b) => b.score - a.score);
-  return candidates[0];
+  return candidates[0] || null;
 }
 
-/**
- * Estratégia Reversão à Média: compra o outcome barato (< 0.25)
- * esperando correção para cima.
- *
- * @param {Array} markets
- * @param {Object} config
- * @returns {Object|null}
- */
 function strategyMeanReversion(markets, config) {
-  const maxPrice = Math.min(0.25, config.maxPriceToBuy);
-  const minPrice = config.minPriceToBuy;
-  const candidates = [];
-
-  for (const m of markets) {
-    for (const o of m.outcomes) {
-      if (!o.name || o.price == null) continue;
-      if (o.price < minPrice || o.price > maxPrice) continue;
-
-      candidates.push({
-        marketId: m.id,
-        marketQuestion: m.question,
-        outcome: o.name,
-        price: o.price,
-        reason: `Reversão à média: ${o.name} a ${(o.price * 100).toFixed(1)}¢ (< 25¢) — esperando correção`,
-        // Score: quanto mais barato, melhor (prioriza os mais distantes da média)
-        score: 0.25 - o.price,
-      });
-    }
-  }
-
-  if (candidates.length === 0) return null;
+  const candidates = eligibleOutcomes(markets, config)
+    .filter(({ outcome }) => outcome.price <= Math.min(0.25, config.maxPriceToBuy))
+    .map(({ market, outcome }) => ({
+      marketId: market.id,
+      marketQuestion: market.question,
+      outcome: outcome.name,
+      price: outcome.price,
+      score: 0.25 - outcome.price,
+      reason: `Reversão à média: ${outcome.name} a ${(outcome.price * 100).toFixed(1)}¢`,
+    }));
   candidates.sort((a, b) => b.score - a.score);
-  return candidates[0];
+  return candidates[0] || null;
 }
 
-/**
- * Estratégia Comprar Barato Amplo: distribui pequenas compras em
- * outcomes com preço < 0.15.
- *
- * @param {Array} markets
- * @param {Object} config
- * @returns {Object|null}
- */
 function strategyBargainHunting(markets, config) {
-  const maxPrice = Math.min(0.15, config.maxPriceToBuy);
-  const minPrice = config.minPriceToBuy;
-  const positions = getPositions();
-  const ownedMarkets = new Set(positions.map(p => `${p.marketId}|${p.outcome}`));
-
-  const candidates = [];
-  for (const m of markets) {
-    for (const o of m.outcomes) {
-      if (!o.name || o.price == null) continue;
-      if (o.price < minPrice || o.price > maxPrice) continue;
-      // Evita comprar onde já tem posição
-      if (ownedMarkets.has(`${m.id}|${o.name}`)) continue;
-
-      candidates.push({
-        marketId: m.id,
-        marketQuestion: m.question,
-        outcome: o.name,
-        price: o.price,
-        reason: `Comprar barato: ${o.name} a ${(o.price * 100).toFixed(1)}¢ (< 15¢)`,
-        score: 0.15 - o.price,
-      });
-    }
-  }
-
-  if (candidates.length === 0) return null;
-  // Escolhe aleatoriamente entre os 3 mais baratos (diversificação)
+  const owned = new Set(getPositions().map(p => `${p.marketId}|${p.outcome}`));
+  const candidates = eligibleOutcomes(markets, config)
+    .filter(({ market, outcome }) => outcome.price <= Math.min(0.15, config.maxPriceToBuy) && !owned.has(`${market.id}|${outcome.name}`))
+    .map(({ market, outcome }) => ({
+      marketId: market.id,
+      marketQuestion: market.question,
+      outcome: outcome.name,
+      price: outcome.price,
+      score: 0.15 - outcome.price,
+      reason: `Comprar barato: ${outcome.name} a ${(outcome.price * 100).toFixed(1)}¢`,
+    }));
   candidates.sort((a, b) => b.score - a.score);
-  const topN = candidates.slice(0, 3);
-  return topN[Math.floor(Math.random() * topN.length)];
+  const top = candidates.slice(0, 3);
+  return top.length ? top[Math.floor(Math.random() * top.length)] : null;
 }
 
-/**
- * Estratégia Value Betting (Expected Value): cria uma "estimativa de
- * probabilidade justa" do mercado a partir do preço atual + histórico
- * e compra outcomes cujo preço está bem abaixo-band da estimativa.
- *
- * EV = (probEstimada × payout) − preço
- * Compra se EV > 0 (preço subestimado).
- *
- * A "estimativa de probabilidade justa" usa uma média entre o preço atual
- * e a média dos últimos preços históricos (suavização). Em mercados de
- * predição, o preço é a probabilidade implícita; se a nossa estimativa
- * suavizada é maior que o preço atual, há edge.
- *
- * @param {Array} markets
- * @param {Object} config
- * @returns {Object|null}
- */
+function estimatedProbability(marketId, outcome) {
+  const recent = getPriceHistory(marketId, outcome).slice(-5).map(p => Number(p.price)).filter(Number.isFinite);
+  if (recent.length < 5) return null;
+  return recent.reduce((sum, price) => sum + price, 0) / recent.length;
+}
+
 function strategyValueBetting(markets, config) {
   const candidates = [];
-
-  for (const m of markets) {
-    for (const o of m.outcomes) {
-      if (!o.name || o.price == null) continue;
-      if (o.price < config.minPriceToBuy || o.price > config.maxPriceToBuy) continue;
-
-      const history = getPriceHistory(m.id, o.name);
-      // Precisa de pelo menos 5 pontos de histórico para estimar
-      if (history.length < 5) continue;
-
-      // Estimativa de prob justa: média dos últimos 5 preços (suavização)
-      const recent = history.slice(-5).map(h => h.price);
-      const fairProb = recent.reduce((s, p) => s + p, 0) / recent.length;
-
-      // EV = prob_justa × retorno - preço
-      // (payout = 1.0 em mercados de predição)
-      const ev = (fairProb * 1.0) - o.price;
-      const evPercent = (ev / o.price) * 100;
-
-      // Compra se EV > 5% (margem de segurança para ruído)
-      if (evPercent > 5) {
-        candidates.push({
-          marketId: m.id,
-          marketQuestion: m.question,
-          outcome: o.name,
-          price: o.price,
-          reason: `Value Bet: ${o.name} a ${(o.price * 100).toFixed(1)}¢, EV=+${evPercent.toFixed(1)}% (prob justa ${(fairProb * 100).toFixed(1)}¢)`,
-          score: evPercent,
-        });
-      }
+  for (const { market, outcome } of eligibleOutcomes(markets, config)) {
+    const fairProb = estimatedProbability(market.id, outcome.name);
+    if (fairProb == null || outcome.price <= 0) continue;
+    const evPercent = ((fairProb - outcome.price) / outcome.price) * 100;
+    if (evPercent > 5) {
+      candidates.push({
+        marketId: market.id,
+        marketQuestion: market.question,
+        outcome: outcome.name,
+        price: outcome.price,
+        score: evPercent,
+        reason: `Value Bet: EV +${evPercent.toFixed(1)}% (estimativa ${(fairProb * 100).toFixed(1)}¢)`,
+      });
     }
   }
-
-  if (candidates.length === 0) return null;
-  // Escolhe o de maior EV
   candidates.sort((a, b) => b.score - a.score);
-  return candidates[0];
+  return candidates[0] || null;
 }
 
-/**
- * Estratégia Kelly Criterion: calcula a fração ótima do bankroll para
- * apostar em cada outcome baseada na edge estimada (EV) e varia o
- * tamanho do trade dinamicamente. Retorna o outcome com maior f* de Kelly.
- *
- * f* = (p × b - q) / b
- * onde:
- *   p = probabilidade estimada de ganhar (prob justa suavizada)
- *   q = 1 - p (probabilidade de perder)
- *   b = (1 - preço) / preço (odds decimal relativa: quanto ganha por $1 investido)
- *
- * Recomenda apostar se f* > 0 (edge positivo). Usa meio-Kelly (f* / 2)
- * para reduzir volatilidade (prática padrão em trading real).
- *
- * @param {Array} markets
- * @param {Object} config
- * @returns {Object|null} — Pick com campo extra kellyFraction recomendada
- */
 function strategyKelly(markets, config) {
   const candidates = [];
-
-  for (const m of markets) {
-    for (const o of m.outcomes) {
-      if (!o.name || o.price == null) continue;
-      if (o.price < config.minPriceToBuy || o.price > config.maxPriceToBuy) continue;
-
-      const history = getPriceHistory(m.id, o.name);
-      if (history.length < 5) continue;
-
-      // Estimativa p via média suavizada dos últimos 5 preços
-      const recent = history.slice(-5).map(h => h.price);
-      const p = recent.reduce((s, pr) => s + pr, 0) / recent.length;
-      const q = 1 - p;
-
-      // Odds b: se preço é 0.30, paga 1/0.30 = 3.33x; b = (1-price)/price
-      const price = o.price;
-      if (price <= 0 || price >= 1) continue;
-      const b = (1 - price) / price;
-
-      // fKelly = (p × b - q) / b — pode ser negativo (sem edge)
-      const fKelly = (p * b - q) / b;
-      // Meio-Kelly para reduzir volatilidade
-      const fHalf = fKelly / 2;
-
-      // Só recomenda se f* > 0 (tem edge) e meio-Kelly >= 1% do saldo
-      if (fHalf > 0.01) {
-        candidates.push({
-          marketId: m.id,
-          marketQuestion: m.question,
-          outcome: o.name,
-          price: price,
-          reason: `Kelly f*=${(fKelly * 100).toFixed(1)}% (½Kelly ${(fHalf * 100).toFixed(1)}%) — p estim ${(p * 100).toFixed(1)}¢ vs preço ${(price * 100).toFixed(1)}¢`,
-          score: fHalf, // maior fHalf = melhor
-          kellyFraction: fHalf, // exposto para evaluateNewEntries usar
-        });
-      }
+  for (const { market, outcome } of eligibleOutcomes(markets, config)) {
+    const p = estimatedProbability(market.id, outcome.name);
+    const price = outcome.price;
+    if (p == null || price <= 0 || price >= 1) continue;
+    const q = 1 - p;
+    const b = (1 - price) / price;
+    const fullKelly = (p * b - q) / b;
+    const halfKelly = fullKelly / 2;
+    if (halfKelly > 0.01) {
+      candidates.push({
+        marketId: market.id,
+        marketQuestion: market.question,
+        outcome: outcome.name,
+        price,
+        score: halfKelly,
+        kellyFraction: halfKelly,
+        reason: `Kelly: ½-Kelly ${(halfKelly * 100).toFixed(1)}%`,
+      });
     }
   }
-
-  if (candidates.length === 0) return null;
   candidates.sort((a, b) => b.score - a.score);
-  return candidates[0];
+  return candidates[0] || null;
 }
 
-/**
- * Estratégia Aleatória: compra ou vende aleatoriamente (toy).
- * ~60% chance de comprar, ~40% de vender (se tem posições).
- *
- * @param {Array} markets
- * @param {Object} config
- * @returns {Object|null} — para comprar: { marketId, outcome, price, reason, action: 'buy' }
- *                          para vender: { marketId, outcome, price, reason, action: 'sell', shares }
- */
 function strategyRandom(markets, config) {
   const positions = getPositions();
-  const roll = Math.random();
-
-  // 40% chance de tentar vender se tem posições
-  if (roll < 0.4 && positions.length > 0) {
+  if (positions.length && Math.random() < 0.4) {
     const pos = positions[Math.floor(Math.random() * positions.length)];
-    const wallet = getWallet();
-    const market = markets.find(m => String(m.id) === String(pos.marketId));
-    const outcomeObj = market?.outcomes.find(o => o.name === pos.outcome);
-    const currentPrice = outcomeObj?.price ?? pos.avgPrice;
-
+    const market = (markets || []).find(m => String(m.id) === String(pos.marketId));
+    const outcome = market?.outcomes?.find(o => o.name === pos.outcome);
+    const price = Number.isFinite(Number(outcome?.price)) ? Number(outcome.price) : Number(pos.avgPrice);
     return {
       action: 'sell',
       marketId: pos.marketId,
       marketQuestion: pos.marketQuestion,
       outcome: pos.outcome,
-      price: currentPrice,
+      price,
       shares: pos.shares,
-      reason: `Aleatório: vendeu ${pos.shares} shares de ${pos.outcome}`,
+      reason: `Aleatório: venda de ${pos.outcome}`,
     };
   }
-
-  // 60% chance (ou 100% se não há posições) — compra
-  const candidates = [];
-  for (const m of markets) {
-    for (const o of m.outcomes) {
-      if (!o.name || o.price == null) continue;
-      if (o.price < config.minPriceToBuy || o.price > config.maxPriceToBuy) continue;
-      candidates.push({
-        marketId: m.id,
-        marketQuestion: m.question,
-        outcome: o.name,
-        price: o.price,
-      });
-    }
-  }
-
-  if (candidates.length === 0) return null;
-  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  const candidates = eligibleOutcomes(markets, config);
+  if (!candidates.length) return null;
+  const { market, outcome } = candidates[Math.floor(Math.random() * candidates.length)];
   return {
     action: 'buy',
-    ...pick,
-    reason: `Aleatório: comprou ${pick.outcome} a ${(pick.price * 100).toFixed(1)}¢`,
+    marketId: market.id,
+    marketQuestion: market.question,
+    outcome: outcome.name,
+    price: outcome.price,
+    reason: `Aleatório: compra de ${outcome.name}`,
   };
 }
 
-// ============================================================
-//  GESTÃO DE POSIÇÕES (take-profit / stop-loss)
-// ============================================================
+function selectStrategy(markets, config) {
+  switch (config.strategy) {
+    case 'meanReversion': return strategyMeanReversion(markets, config);
+    case 'bargainHunting': return strategyBargainHunting(markets, config);
+    case 'valueBetting': return strategyValueBetting(markets, config);
+    case 'kelly': return strategyKelly(markets, config);
+    case 'random': return strategyRandom(markets, config);
+    case 'momentum':
+    default: return strategyMomentum(markets, config);
+  }
+}
 
-/**
- * Avalia todas as posições abertas e executa take-profit ou stop-loss
- * conforme a config do bot.
- *
- * @param {Array} markets — state.markets (para preços atuais)
- * @param {Object} config — config do bot
- * @returns {Array} — ações executadas [{ action, marketId, outcome, shares, price, reason }]
- */
+function sumExposure(positions, markets, predicate) {
+  return positions.filter(predicate).reduce((sum, position) => {
+    const metrics = computePositionMetrics(position, markets);
+    return sum + (Number.isFinite(Number(metrics.marketValue)) ? Math.max(0, Number(metrics.marketValue)) : 0);
+  }, 0);
+}
+
+export function getRiskState(markets, config = getConfig(), now = Date.now()) {
+  const normalized = normalizeConfig(config);
+  const wallet = getWallet();
+  const log = getLog(MAX_LOG_ENTRIES);
+  const nowMs = Number.isFinite(Number(now)) ? Number(now) : Date.now();
+  const dayStart = new Date(nowMs);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayStartMs = dayStart.getTime();
+  const dailyRealizedPnl = log.reduce((sum, entry) => {
+    const ts = Date.parse(entry?.timestamp);
+    const pnl = Number(entry?.pnl);
+    return entry?.action === 'sell' && Number.isFinite(ts) && ts >= dayStartMs && Number.isFinite(pnl) ? sum + pnl : sum;
+  }, 0);
+  const dailyLossLimit = Math.max(0, Number(wallet.initialBalance) || 0) * normalized.maxDailyLossPct / 100;
+  const dailyLossBreached = dailyLossLimit > 0 && dailyRealizedPnl <= -dailyLossLimit;
+
+  const lastLoss = log.find(entry => entry?.action === 'sell' && Number(entry?.pnl) < 0 && Number.isFinite(Date.parse(entry?.timestamp)));
+  const lastLossAt = lastLoss ? Date.parse(lastLoss.timestamp) : null;
+  const cooldownMs = normalized.cooldownAfterLossMin * 60_000;
+  const cooldownUntil = lastLossAt == null ? null : lastLossAt + cooldownMs;
+  const cooldownRemainingMs = cooldownUntil && cooldownUntil > nowMs ? cooldownUntil - nowMs : 0;
+  const summary = computePortfolioSummary(Array.isArray(markets) ? markets : []);
+
+  return {
+    dailyRealizedPnl,
+    dailyLossLimit,
+    dailyLossBreached,
+    lastLossAt,
+    cooldownUntil,
+    cooldownRemainingMs,
+    inCooldown: cooldownRemainingMs > 0,
+    equity: Number(summary.totalEquity) || 0,
+  };
+}
+
 function managePositions(markets, config) {
   const actions = [];
-  const positions = getPositions();
-  if (positions.length === 0) return actions;
-
-  for (const pos of positions) {
-    const market = markets.find(m => String(m.id) === String(pos.marketId));
-    const outcomeObj = market?.outcomes.find(o => o.name === pos.outcome);
-    const currentPrice = outcomeObj?.price ?? pos.avgPrice;
-
-    if (!outcomeObj) continue; // mercado não encontrado — não pode gerenciar
-
+  for (const pos of [...getPositions()]) {
+    const market = (markets || []).find(m => String(m.id) === String(pos.marketId));
+    const outcome = market?.outcomes?.find(o => o.name === pos.outcome);
+    if (!outcome || !Number.isFinite(Number(outcome.price))) continue;
+    const price = Number(outcome.price);
     const metrics = computePositionMetrics(pos, markets);
-    const pnlPercent = metrics.pnlPercent;
+    const pnlPercent = Number(metrics.pnlPercent) || 0;
+    let reason = null;
+    if (pnlPercent >= config.profitTarget) reason = `Take-profit: ${pnlPercent.toFixed(1)}% ≥ ${config.profitTarget}%`;
+    else if (pnlPercent <= -config.stopLoss) reason = `Stop-loss: ${pnlPercent.toFixed(1)}% ≤ -${config.stopLoss}%`;
+    if (!reason) continue;
 
-    // Take-profit: vende tudo se P&L >= profitTarget%
-    if (pnlPercent >= config.profitTarget) {
-      const result = walletSell({
-        marketId: pos.marketId,
-        outcome: pos.outcome,
-        shares: pos.shares,
-        price: currentPrice,
-      });
-
-      if (result.success) {
-        const action = {
-          action: 'sell',
-          marketId: pos.marketId,
-          marketQuestion: pos.marketQuestion,
-          outcome: pos.outcome,
-          shares: pos.shares,
-          price: currentPrice,
-          reason: `Take-profit: ${pnlPercent.toFixed(1)}% ≥ ${config.profitTarget}% — vendeu ${pos.shares} shares`,
-        };
-        actions.push(action);
-        addLogEntry(action);
-      }
+    const result = walletSell({ marketId: pos.marketId, outcome: pos.outcome, shares: pos.shares, price });
+    if (!result.success) {
+      actions.push({ action: 'error', reason: result.message });
+      continue;
     }
-    // Stop-loss: vende tudo se P&L <= -stopLoss%
-    else if (pnlPercent <= -config.stopLoss) {
-      const result = walletSell({
-        marketId: pos.marketId,
-        outcome: pos.outcome,
-        shares: pos.shares,
-        price: currentPrice,
-      });
-
-      if (result.success) {
-        const action = {
-          action: 'sell',
-          marketId: pos.marketId,
-          marketQuestion: pos.marketQuestion,
-          outcome: pos.outcome,
-          shares: pos.shares,
-          price: currentPrice,
-          reason: `Stop-loss: ${pnlPercent.toFixed(1)}% ≤ -${config.stopLoss}% — vendeu ${pos.shares} shares`,
-        };
-        actions.push(action);
-        addLogEntry(action);
-      }
-    }
+    const action = {
+      action: 'sell',
+      marketId: pos.marketId,
+      marketQuestion: pos.marketQuestion,
+      outcome: pos.outcome,
+      shares: pos.shares,
+      price,
+      pnl: Number(metrics.pnl) || 0,
+      reason: `${reason} — vendeu ${pos.shares} shares`,
+    };
+    actions.push(action);
+    addLogEntry(action);
   }
-
   return actions;
 }
 
-// ============================================================
-//  NOVAS ENTRADAS (compra de novos mercados)
-// ============================================================
-
-/**
- * Avalia novos mercados para entrar, conforme a estratégia selecionada.
- *
- * @param {Array} markets — state.markets
- * @param {Object} config — config do bot
- * @returns {Array} — ações executadas [{ action, marketId, outcome, shares, price, reason }]
- */
 function evaluateNewEntries(markets, config) {
   const actions = [];
-
-  // Verifica limites
   const positions = getPositions();
-  if (positions.length >= config.maxOpenPositions) {
-    actions.push({
-      action: 'skip',
-      reason: `Máximo de ${config.maxOpenPositions} posições abertas atingido`,
-    });
-    return actions;
-  }
-
   const wallet = getWallet();
-  if (wallet.balance <= 0) {
-    actions.push({
-      action: 'skip',
-      reason: 'Saldo insuficiente',
-    });
+  const risk = getRiskState(markets, config);
+
+  if (risk.dailyLossBreached) {
+    return [{ action: 'skip', reason: `Limite diário de perda atingido (${risk.dailyRealizedPnl.toFixed(2)})` }];
+  }
+  if (risk.inCooldown) {
+    const minutes = Math.max(1, Math.ceil(risk.cooldownRemainingMs / 60_000));
+    return [{ action: 'skip', reason: `Cooldown após perda ativo por mais ${minutes} min` }];
+  }
+  if (positions.length >= config.maxOpenPositions) {
+    return [{ action: 'skip', reason: `Máximo de ${config.maxOpenPositions} posições abertas atingido` }];
+  }
+  if (!Number.isFinite(Number(wallet.balance)) || wallet.balance <= 0) {
+    return [{ action: 'skip', reason: 'Saldo insuficiente' }];
+  }
+
+  const pick = selectStrategy(markets, config);
+  if (!pick) return [{ action: 'skip', reason: `Estratégia "${config.strategy}" não encontrou oportunidades` }];
+
+  if (pick.action === 'sell') {
+    const existing = getPosition(pick.marketId, pick.outcome);
+    const pnl = existing ? (Number(pick.price) - Number(existing.avgPrice)) * Number(pick.shares) : 0;
+    const result = walletSell({ marketId: pick.marketId, outcome: pick.outcome, shares: pick.shares, price: pick.price });
+    if (!result.success) return [{ action: 'error', reason: result.message }];
+    const action = { ...pick, action: 'sell', pnl: Number.isFinite(pnl) ? pnl : 0 };
+    actions.push(action);
+    addLogEntry(action);
     return actions;
   }
 
-  // Calcula quanto gastar por operação
-  const tradeBudget = (wallet.balance * config.porTrade) / 100;
-  if (tradeBudget < 0.01) {
-    actions.push({
-      action: 'skip',
-      reason: `Orçamento por trade (${tradeBudget}) muito baixo`,
-    });
-    return actions;
+  const price = Number(pick.price);
+  if (!Number.isFinite(price) || price <= 0 || price > 1) return [{ action: 'skip', reason: `Preço inválido: ${pick.price}` }];
+
+  let effectiveBudget = wallet.balance * config.porTrade / 100;
+  if (config.strategy === 'kelly' && Number(pick.kellyFraction) > 0) {
+    const halfKellyBudget = wallet.balance * Math.min(Number(pick.kellyFraction), 0.25);
+    effectiveBudget = Math.max(effectiveBudget * 0.5, halfKellyBudget);
   }
 
-  // Executa a estratégia selecionada
-  let pick = null;
-  let isSellAction = false;
+  const equity = Math.max(0, risk.equity);
+  const marketExposure = sumExposure(positions, markets, p => String(p.marketId) === String(pick.marketId));
+  const positionExposure = sumExposure(positions, markets, p => String(p.marketId) === String(pick.marketId) && p.outcome === pick.outcome);
+  const marketRoom = Math.max(0, equity * config.maxMarketExposurePct / 100 - marketExposure);
+  const positionRoom = Math.max(0, equity * config.maxPositionPct / 100 - positionExposure);
+  effectiveBudget = Math.min(effectiveBudget, marketRoom, positionRoom, wallet.balance);
 
-  switch (config.strategy) {
-    case 'momentum':
-      pick = strategyMomentum(markets, config);
-      break;
-    case 'meanReversion':
-      pick = strategyMeanReversion(markets, config);
-      break;
-    case 'bargainHunting':
-      pick = strategyBargainHunting(markets, config);
-      break;
-    case 'valueBetting':
-      pick = strategyValueBetting(markets, config);
-      break;
-    case 'kelly':
-      pick = strategyKelly(markets, config);
-      break;
-    case 'random':
-      pick = strategyRandom(markets, config);
-      isSellAction = pick?.action === 'sell';
-      break;
-    default:
-      pick = strategyMomentum(markets, config);
+  if (effectiveBudget < price) {
+    return [{ action: 'skip', reason: 'Limite de exposição/posição impede nova entrada' }];
   }
 
-  if (!pick) {
-    actions.push({
-      action: 'skip',
-      reason: `Estratégia "${config.strategy}" não encontrou oportunidades`,
-    });
-    return actions;
-  }
+  const shares = Math.floor(effectiveBudget / price);
+  if (shares < 1) return [{ action: 'skip', reason: 'Orçamento insuficiente para comprar 1 share' }];
+  const result = walletBuy({
+    marketId: pick.marketId,
+    marketQuestion: pick.marketQuestion,
+    outcome: pick.outcome,
+    shares,
+    price,
+  });
+  if (!result.success) return [{ action: 'error', reason: result.message }];
 
-  // Executa a ação
-  if (isSellAction) {
-    // Estratégia aleatória pode decidir vender
-    const result = walletSell({
-      marketId: pick.marketId,
-      outcome: pick.outcome,
-      shares: pick.shares,
-      price: pick.price,
-    });
-
-    if (result.success) {
-      const action = {
-        action: 'sell',
-        marketId: pick.marketId,
-        marketQuestion: pick.marketQuestion,
-        outcome: pick.outcome,
-        shares: pick.shares,
-        price: pick.price,
-        reason: pick.reason,
-      };
-      actions.push(action);
-      addLogEntry(action);
-    } else {
-      actions.push({ action: 'error', reason: result.message });
-    }
-  } else {
-    // Compra — calcula quantas shares dá para comprar com o orçamento
-    const price = pick.price;
-    if (price <= 0 || price > 1) {
-      actions.push({ action: 'skip', reason: `Preço inválido: ${price}` });
-      return actions;
-    }
-
-    // Para Kelly: o orçamento do trade é multiplicado pela fração kelly
-    // (meio-Kelly já está embutida no kellyFraction). Cap em 25% do saldo
-    // para evitar over-bet mesmo com f* alto.
-    let effectiveBudget = tradeBudget;
-    if (config.strategy === 'kelly' && pick.kellyFraction) {
-      const kellyCap = Math.min(pick.kellyFraction, 0.25); // max 25% do saldo
-      effectiveBudget = wallet.balance * kellyCap;
-      // Mínimo do orçamento padrão e do Kelly cap
-      effectiveBudget = Math.max(effectiveBudget, tradeBudget * 0.5);
-    }
-
-    const maxShares = Math.floor(effectiveBudget / price);
-    if (maxShares < 1) {
-      actions.push({
-        action: 'skip',
-        reason: `Orçamento (${effectiveBudget.toFixed(2)}) insuficiente para comprar a ${(price * 100).toFixed(1)}¢`,
-      });
-      return actions;
-    }
-
-    const result = walletBuy({
-      marketId: pick.marketId,
-      marketQuestion: pick.marketQuestion,
-      outcome: pick.outcome,
-      shares: maxShares,
-      price: price,
-    });
-
-    if (result.success) {
-      const action = {
-        action: 'buy',
-        marketId: pick.marketId,
-        marketQuestion: pick.marketQuestion,
-        outcome: pick.outcome,
-        shares: maxShares,
-        price: price,
-        reason: pick.reason || `Comprou ${maxShares} shares de ${pick.outcome} a ${(price * 100).toFixed(1)}¢`,
-      };
-      actions.push(action);
-      addLogEntry(action);
-    } else {
-      actions.push({ action: 'error', reason: result.message });
-    }
-  }
-
+  const action = {
+    action: 'buy',
+    marketId: pick.marketId,
+    marketQuestion: pick.marketQuestion,
+    outcome: pick.outcome,
+    shares,
+    price,
+    reason: pick.reason || `Comprou ${shares} shares de ${pick.outcome}`,
+  };
+  actions.push(action);
+  addLogEntry(action);
   return actions;
 }
 
-// ============================================================
-//  CICLO DE AVALIAÇÃO (tick)
-// ============================================================
-
-/**
- * Executa um ciclo de avaliação do bot.
- * 1. Verifica se está ligado e há saldo disponível
- * 2. Registra preços atuais no histórico (para momentum)
- * 3. Gestão de posições: aplica take-profit/stop-loss
- * 4. Novas entradas: avalia mercados e aplica a estratégia escolhida
- *
- * @param {Array} markets — state.markets (mercados carregados)
- * @returns {Object} — { tick, actions: [], summary: string }
- */
 export function tick(markets) {
   _tickCount++;
   const config = getConfig();
-  const allActions = [];
+  if (!config.enabled) return { tick: _tickCount, actions: [], summary: 'Bot desligado' };
+  if (!Array.isArray(markets) || markets.length === 0) return { tick: _tickCount, actions: [], summary: 'Sem mercados carregados' };
 
-  if (!config.enabled) {
-    return { tick: _tickCount, actions: [], summary: 'Bot desligado' };
-  }
-
-  if (!markets || markets.length === 0) {
-    return { tick: _tickCount, actions: [], summary: 'Sem mercados carregados' };
-  }
-
-  // 1. Registra preços no histórico (para estratégia momentum)
-  for (const m of markets.slice(0, 20)) { // limita a 20 mercados para economizar storage
-    for (const o of m.outcomes) {
-      if (o.name && o.price != null) {
-        recordPrice(m.id, o.name, o.price);
-      }
-    }
-  }
-
-  // 2. Gestão de posições existentes (take-profit / stop-loss)
-  const manageActions = managePositions(markets, config);
-  allActions.push(...manageActions);
-
-  // 3. Novas entradas (avalia mercados conforme estratégia)
-  const entryActions = evaluateNewEntries(markets, config);
-  allActions.push(...entryActions);
-
-  // 4. Log de tick mesmo se não houve ações (para debug)
+  recordMarketSnapshots(markets, { limit: 50 });
+  const allActions = [...managePositions(markets, config), ...evaluateNewEntries(markets, config)];
   const realActions = allActions.filter(a => a.action !== 'skip' && a.action !== 'error');
   const skipActions = allActions.filter(a => a.action === 'skip');
-  const errorActions = allActions.filter(a => a.action === 'error');
-
-  // Se não houve trades, loga um skip para debug (apenas no console, não no pm_bot_log)
-  if (realActions.length === 0) {
-    const skipReasons = skipActions.map(s => s.reason).join('; ') || 'Nenhuma oportunidade';
-    console.log(`bot.js tick #${_tickCount}: ${skipReasons}`);
-  }
-
-  const summary = realActions.length > 0
+  const summary = realActions.length
     ? `${realActions.length} ação(ões) executada(s)`
-    : skipActions.length > 0
-      ? skipActions[0].reason
-      : 'Nenhuma ação';
+    : (skipActions[0]?.reason || 'Nenhuma ação');
 
-  // 5. Callbacks para UI
-  if (_onActionCallback && realActions.length > 0) {
-    _onActionCallback(realActions);
-  }
-  if (_onTickCallback) {
-    _onTickCallback({ tick: _tickCount, summary, actions: realActions });
-  }
-
+  if (_onActionCallback && realActions.length) _onActionCallback(realActions);
+  if (_onTickCallback) _onTickCallback({ tick: _tickCount, summary, actions: realActions });
   return { tick: _tickCount, actions: realActions, summary };
 }
 
-// ============================================================
-//  START / STOP (controle do setInterval)
-// ============================================================
-
-/**
- * Inicia o ciclo de avaliação via setInterval.
- * @param {Array} getMarketsFn — função que retorna state.markets (passada pelo app)
- * @param {Object} callbacks — { onTick, onAction }
- */
 export function start(getMarketsFn, callbacks = {}) {
   const config = getConfig();
-  if (_intervalHandle) stop(); // já rodando — reinicia
-
-  // Atualiza config com callbacks
+  if (_intervalHandle) stop();
   _onTickCallback = callbacks.onTick || null;
   _onActionCallback = callbacks.onAction || null;
-
-  // Marca como ligado
   updateConfig({ enabled: true });
-
-  // Primeiro tick imediato
-  const markets = getMarketsFn();
-  tick(markets);
-
-  // Agenda ticks subsequentes
+  tick(getMarketsFn());
   _intervalHandle = setInterval(() => {
-    if (document.hidden) return; // não roda se aba não visível
-    const m = getMarketsFn();
-    tick(m);
+    if (globalThis.document?.hidden) return;
+    tick(getMarketsFn());
   }, config.intervalMs);
-
-  console.log(`bot.js: iniciado (estratégia=${config.strategy}, intervalo=${config.intervalMs}ms)`);
   return _intervalHandle;
 }
 
-/**
- * Para o ciclo de avaliação.
- */
 export function stop() {
-  if (_intervalHandle) {
-    clearInterval(_intervalHandle);
-    _intervalHandle = null;
-  }
+  if (_intervalHandle) clearInterval(_intervalHandle);
+  _intervalHandle = null;
   updateConfig({ enabled: false });
   _onTickCallback = null;
   _onActionCallback = null;
-  console.log('bot.js: parado');
 }
 
-/**
- * Verifica se o bot está rodando.
- * @returns {boolean}
- */
+export function emergencyStop(reason = 'Parada de emergência acionada') {
+  addLogEntry({ action: 'risk-stop', reason });
+  stop();
+  return { stopped: true, reason };
+}
+
 export function isRunning() {
   return _intervalHandle !== null;
 }
 
-/**
- * Retorna o tick count atual.
- * @returns {number}
- */
 export function getTickCount() {
   return _tickCount;
 }
 
-/**
- * Reseta o tick count (para reiniciar a contagem).
- */
 export function resetTickCount() {
   _tickCount = 0;
 }
 
-// ============================================================
-//  ESTATÍSTICAS DO BOT
-// ============================================================
-
-/**
- * Calcula estatísticas das ações do bot a partir do log.
- * @returns {Object} — { totalActions, totalBuys, totalSells, totalSkips, lastAction }
- */
 export function getBotStats() {
   const log = getLog(MAX_LOG_ENTRIES);
-  const totalBuys = log.filter(e => e.action === 'buy').length;
-  const totalSells = log.filter(e => e.action === 'sell').length;
-  const lastAction = log[0] || null;
-
   return {
     totalActions: log.length,
-    totalBuys,
-    totalSells,
-    lastAction,
+    totalBuys: log.filter(e => e.action === 'buy').length,
+    totalSells: log.filter(e => e.action === 'sell').length,
+    totalRiskStops: log.filter(e => e.action === 'risk-stop').length,
+    lastAction: log[0] || null,
   };
 }
-
-// ============================================================
-//  EXPORT DAS ESTRATÉGIAS (para testes lógicos)
-// ============================================================
 
 export const _strategies = {
   momentum: strategyMomentum,
@@ -889,8 +497,7 @@ export const _strategies = {
 
 export const _managePositions = managePositions;
 export const _evaluateNewEntries = evaluateNewEntries;
-
-// ===== Aliases para consistência com o schema da skill =====
+export { getMarketHistory, getPriceHistory, clearMarketHistory };
 export { getConfig as getBotConfig };
 export { saveConfig as setBotConfig };
 export { updateConfig as updateBotConfig };
