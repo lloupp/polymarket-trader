@@ -12,7 +12,9 @@ import {
 
 const BOT_CONFIG_KEY = 'bot_config';
 const BOT_LOG_KEY = 'bot_log';
+const BOT_RISK_LEDGER_KEY = 'bot_risk_ledger';
 const MAX_LOG_ENTRIES = 500;
+const MAX_RISK_ENTRIES = 1000;
 const STRATEGIES = new Set(['momentum', 'meanReversion', 'bargainHunting', 'valueBetting', 'kelly', 'random']);
 
 const DEFAULT_CONFIG = {
@@ -86,16 +88,48 @@ export function getLog(limit = 50) {
   return Array.isArray(log) ? log.slice(0, Math.max(0, limit)) : [];
 }
 
+function getRiskLedger() {
+  const stored = loadFromStorage(BOT_RISK_LEDGER_KEY, null);
+  if (Array.isArray(stored)) return stored;
+
+  // Migra perdas/ganhos realizados de instalações anteriores sem ledger dedicado.
+  const legacyLog = loadFromStorage(BOT_LOG_KEY, []);
+  const migrated = (Array.isArray(legacyLog) ? legacyLog : [])
+    .filter(entry => entry?.action === 'sell' && Number.isFinite(Number(entry?.pnl)) && Number.isFinite(Date.parse(entry?.timestamp)))
+    .map(entry => ({ timestamp: entry.timestamp, pnl: Number(entry.pnl) }))
+    .slice(0, MAX_RISK_ENTRIES);
+  saveToStorage(BOT_RISK_LEDGER_KEY, migrated);
+  return migrated;
+}
+
+function recordRiskEntry(entry, timestamp) {
+  if (entry?.action !== 'sell' || !Number.isFinite(Number(entry?.pnl))) return;
+  const ledger = getRiskLedger();
+  ledger.unshift({ timestamp, pnl: Number(entry.pnl) });
+  if (ledger.length > MAX_RISK_ENTRIES) ledger.length = MAX_RISK_ENTRIES;
+  saveToStorage(BOT_RISK_LEDGER_KEY, ledger);
+}
+
 function addLogEntry(entry) {
   const current = loadFromStorage(BOT_LOG_KEY, []);
   const log = Array.isArray(current) ? current : [];
-  log.unshift({ timestamp: new Date().toISOString(), ...entry });
+  const timestamp = new Date().toISOString();
+  log.unshift({ timestamp, ...entry });
   if (log.length > MAX_LOG_ENTRIES) log.length = MAX_LOG_ENTRIES;
   saveToStorage(BOT_LOG_KEY, log);
+  recordRiskEntry(entry, timestamp);
 }
 
 export function clearLog() {
   saveToStorage(BOT_LOG_KEY, []);
+
+  // Limpar a visualização não pode zerar limites de perda. O ledger só é
+  // reiniciado quando a própria carteira acabou de ser resetada.
+  const wallet = getWallet();
+  const freshWallet = Array.isArray(wallet.trades) && wallet.trades.length === 0 &&
+    Array.isArray(wallet.positions) && wallet.positions.length === 0 &&
+    Math.abs(Number(wallet.balance) - Number(wallet.initialBalance)) < 1e-9;
+  if (freshWallet) saveToStorage(BOT_RISK_LEDGER_KEY, []);
 }
 
 function eligibleOutcomes(markets, config) {
@@ -270,20 +304,20 @@ function sumExposure(positions, markets, predicate) {
 export function getRiskState(markets, config = getConfig(), now = Date.now()) {
   const normalized = normalizeConfig(config);
   const wallet = getWallet();
-  const log = getLog(MAX_LOG_ENTRIES);
+  const ledger = getRiskLedger();
   const nowMs = Number.isFinite(Number(now)) ? Number(now) : Date.now();
   const dayStart = new Date(nowMs);
   dayStart.setHours(0, 0, 0, 0);
   const dayStartMs = dayStart.getTime();
-  const dailyRealizedPnl = log.reduce((sum, entry) => {
+  const dailyRealizedPnl = ledger.reduce((sum, entry) => {
     const ts = Date.parse(entry?.timestamp);
     const pnl = Number(entry?.pnl);
-    return entry?.action === 'sell' && Number.isFinite(ts) && ts >= dayStartMs && Number.isFinite(pnl) ? sum + pnl : sum;
+    return Number.isFinite(ts) && ts >= dayStartMs && Number.isFinite(pnl) ? sum + pnl : sum;
   }, 0);
   const dailyLossLimit = Math.max(0, Number(wallet.initialBalance) || 0) * normalized.maxDailyLossPct / 100;
   const dailyLossBreached = dailyLossLimit > 0 && dailyRealizedPnl <= -dailyLossLimit;
 
-  const lastLoss = log.find(entry => entry?.action === 'sell' && Number(entry?.pnl) < 0 && Number.isFinite(Date.parse(entry?.timestamp)));
+  const lastLoss = ledger.find(entry => Number(entry?.pnl) < 0 && Number.isFinite(Date.parse(entry?.timestamp)));
   const lastLossAt = lastLoss ? Date.parse(lastLoss.timestamp) : null;
   const cooldownMs = normalized.cooldownAfterLossMin * 60_000;
   const cooldownUntil = lastLossAt == null ? null : lastLossAt + cooldownMs;
