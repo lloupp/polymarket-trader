@@ -6,7 +6,7 @@ import {
   blockBootstrapReturnCI,
   normalizeDataset,
 } from '../js/backtest.js';
-import { buildDatasetFromSeries } from '../js/backtest-data.js';
+import { buildDatasetFromSeries, fetchHistoricalUniverse } from '../js/backtest-data.js';
 
 function datasetFromYes(prices, stepMs = 60_000) {
   return prices.map((price, index) => ({
@@ -53,6 +53,13 @@ test('executa entrada na barra seguinte, não no preço que gerou o sinal', () =
   assert.equal(buy.price, 0.2);
 });
 
+test('não abre posição na última barra apenas para liquidá-la imediatamente', () => {
+  const data = datasetFromYes([0.4, 0.4, 0.1, 0.2]);
+  const result = runBacktest(data, baseConfig);
+  assert.equal(result.trades.filter(t => t.side === 'buy').length, 0);
+  assert.equal(result.assumptions.noEntriesOnFinalFillBar, true);
+});
+
 test('slippage e taxas reduzem o resultado e são contabilizados', () => {
   const data = datasetFromYes([0.4, 0.1, 0.2, 0.3, 0.4, 0.5]);
   const clean = runBacktest(data, { ...baseConfig, profitTarget: 20, slippageBps: 0, feeBps: 0 });
@@ -62,12 +69,16 @@ test('slippage e taxas reduzem o resultado e são contabilizados', () => {
   assert.ok(costly.fullMetrics.slippageCost > 0);
 });
 
-test('random é reproduzível com a mesma seed', () => {
-  const data = datasetFromYes(Array.from({ length: 40 }, (_, i) => 0.35 + (i % 4) * 0.02));
-  const cfg = { ...baseConfig, strategy: 'random', warmupBars: 2, seed: 77, profitTarget: 5 };
+test('random é reproduzível com a mesma seed e não compra quando escolheu venda aleatória', () => {
+  const data = datasetFromYes(Array.from({ length: 60 }, (_, i) => 0.35 + (i % 4) * 0.02));
+  const cfg = { ...baseConfig, strategy: 'random', warmupBars: 2, seed: 77, profitTarget: 1000 };
   const a = runBacktest(data, cfg);
   const b = runBacktest(data, cfg);
   assert.deepEqual(a.trades, b.trades);
+  const buysByTime = new Set(a.trades.filter(t => t.side === 'buy').map(t => t.timestamp));
+  const randomSells = a.trades.filter(t => t.side === 'sell' && t.reason === 'random-strategy-sell');
+  assert.ok(randomSells.length > 0);
+  for (const sell of randomSells) assert.equal(buysByTime.has(sell.timestamp), false);
 });
 
 test('normalização ordena e remove timestamps inválidos', () => {
@@ -89,6 +100,44 @@ test('alinhamento histórico faz forward-fill apenas depois da primeira observa�
   assert.equal(data[0].timestamp, 120_000);
   assert.equal(data[0].markets[0].outcomes.find(o => o.name === 'Yes').price, 0.4);
   assert.equal(data[0].markets[0].outcomes.find(o => o.name === 'No').price, 0.6);
+});
+
+test('forward-fill expira após limite de staleness para não inventar liquidez', () => {
+  const series = [
+    { marketId: 'm1', outcome: 'Yes', points: [{ timestamp: 0, price: 0.4 }] },
+    { marketId: 'm1', outcome: 'No', points: [0, 60_000, 120_000, 180_000, 240_000, 300_000].map(timestamp => ({ timestamp, price: 0.6 })) },
+  ];
+  const defs = [{ id: 'm1', question: 'Teste', outcomes: [{ name: 'Yes' }, { name: 'No' }] }];
+  const data = buildDatasetFromSeries(series, defs, { fidelityMinutes: 1, maxForwardFillBuckets: 3 });
+  assert.deepEqual(data.map(row => row.timestamp), [0, 60_000, 120_000, 180_000]);
+});
+
+test('universo histórico pagina candidatos antes da seleção determinística', async () => {
+  const calls = [];
+  const start = Date.parse('2026-01-01T00:00:00Z') / 1000;
+  const end = Date.parse('2026-02-01T00:00:00Z') / 1000;
+  const row = id => ({
+    id: String(id),
+    question: `M${id}`,
+    outcomes: '["Yes","No"]',
+    clobTokenIds: `["y${id}","n${id}"]`,
+    startDate: '2025-12-01T00:00:00Z',
+    endDate: '2026-03-01T00:00:00Z',
+  });
+  const fetchImpl = async url => {
+    const parsed = new URL(url);
+    calls.push(parsed.searchParams.get('offset'));
+    const closed = parsed.searchParams.get('closed') === 'true';
+    const offset = Number(parsed.searchParams.get('offset'));
+    let payload = [];
+    if (closed && offset === 0) payload = Array.from({ length: 100 }, (_, i) => row(i));
+    if (closed && offset === 100) payload = [row(100)];
+    return { ok: true, status: 200, json: async () => payload };
+  };
+  const result = await fetchHistoricalUniverse({ startTs: start, endTs: end, maxMarkets: 5, seed: 9, fetchImpl });
+  assert.equal(result.candidates, 101);
+  assert.equal(result.markets.length, 5);
+  assert.ok(calls.includes('100'));
 });
 
 test('gera métricas OOS e bootstrap por blocos quando há amostra suficiente', () => {
