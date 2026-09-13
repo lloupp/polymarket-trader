@@ -101,6 +101,44 @@ test('stop-loss alimenta perda diária e cooldown', () => {
   closeTo(risk.dailyRealizedPnl, -10);
 });
 
+test('limpar log visual não remove bloqueio de risco; reset da carteira remove', () => {
+  localStorage.clear();
+  wallet.reset(1000);
+  bot.clearLog();
+  wallet.buy({ marketId: 'm2', marketQuestion: 'Risco', outcome: 'Yes', shares: 100, price: 0.5 });
+  const config = bot.saveConfig({
+    enabled: true,
+    strategy: 'momentum',
+    porTrade: 5,
+    maxOpenPositions: 10,
+    minPriceToBuy: 0.01,
+    maxPriceToBuy: 0.75,
+    profitTarget: 20,
+    stopLoss: 10,
+    intervalMs: 60_000,
+    maxDailyLossPct: 0.5,
+    maxMarketExposurePct: 15,
+    maxPositionPct: 10,
+    cooldownAfterLossMin: 10,
+  });
+  const markets = [{ id: 'm2', question: 'Risco', outcomes: [{ name: 'Yes', price: 0.4 }, { name: 'No', price: 0.6 }] }];
+  bot._managePositions(markets, config);
+
+  bot.clearLog();
+  assert.equal(bot.getLog().length, 0);
+  const protectedRisk = bot.getRiskState(markets, config);
+  assert.equal(protectedRisk.dailyLossBreached, true);
+  assert.equal(protectedRisk.inCooldown, true);
+  closeTo(protectedRisk.dailyRealizedPnl, -10);
+
+  wallet.reset(1000);
+  bot.clearLog();
+  const resetRisk = bot.getRiskState(markets, config);
+  assert.equal(resetRisk.dailyLossBreached, false);
+  assert.equal(resetRisk.inCooldown, false);
+  closeTo(resetRisk.dailyRealizedPnl, 0);
+});
+
 test('parada de emergência desabilita o bot e registra evento', () => {
   localStorage.clear();
   bot.saveConfig({ enabled: true });
