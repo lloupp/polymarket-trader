@@ -35,12 +35,6 @@ function pct(value, digits = 2) {
   return `${n >= 0 ? '+' : ''}${n.toFixed(digits)}%`;
 }
 
-function money(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return '—';
-  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
-}
-
 function dateShort(timestamp) {
   const d = new Date(Number(timestamp));
   return Number.isFinite(d.getTime()) ? d.toLocaleDateString('pt-BR') : '—';
@@ -127,7 +121,7 @@ function injectAdvancedPanel() {
         <select id="bt-wf-selection"><option value="fixed" selected>Estratégia fixa escolhida acima</option><option value="nestedBest">Nested: melhor estratégia no treino</option></select>
       </label>
       <label>Janela treino (%) <input id="bt-wf-train" type="number" min="20" max="80" value="50"></label>
-      <label>Janela teste (%) <input id="bt-wf-test" type="number" min="5" max="35" value="15"></label>
+      <label>Janela teste (%) <input id="bt-wf-test" type="number" min="10" max="35" value="15"></label>
       <label>OOS interno da seleção (%) <input id="bt-wf-inner" type="number" min="15" max="50" value="30"></label>
     </div>
     <div class="backtest-actions">
@@ -218,6 +212,7 @@ function renderWalkForward(wf, historical) {
       <span>✓ Universo/dados idênticos entre estratégia e benchmark</span>
       <span>Mercados utilizáveis: ${esc(historical.markets.length)}</span>
       <span class="bt-limit">⚠ Walk-forward mede estabilidade histórica, não elimina regime shift futuro</span>
+      <span class="bt-limit">⚠ Selecionar entre várias estratégias ainda exige confirmação em períodos futuros independentes</span>
       <span class="bt-limit">⚠ Benchmark passivo é referência simples, não carteira ótima</span>
     </div>`;
 }
