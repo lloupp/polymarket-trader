@@ -4,6 +4,10 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check js/api.js && node --check js/app.js && node --check js/bot.js && node --check js/portfolio.js && node --check js/trades.js && node --check js/utils.js && node --check js/wallet.js"
+    "test:e2e": "playwright test",
+    "check": "node --check js/api.js && node --check js/app.js && node --check js/bot.js && node --check js/market-history.js && node --check js/portfolio.js && node --check js/trades.js && node --check js/utils.js && node --check js/wallet.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
   }
 }

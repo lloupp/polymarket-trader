@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Polymarket Trader — Simulação de Carteira</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/enhancements.css">
 </head>
 <body>
   <div id="app">
-    <!-- Header -->
     <header class="header">
       <div class="header-left">
         <h1 class="logo">📊 Polymarket Trader</h1>
@@ -27,7 +27,6 @@
       </div>
     </header>
 
-    <!-- Tabs -->
     <nav class="tabs" role="tablist">
       <button class="tab active" data-tab="markets" role="tab" aria-selected="true">Mercados</button>
       <button class="tab" data-tab="portfolio" role="tab" aria-selected="false">Portfolio</button>
@@ -35,7 +34,6 @@
       <button class="tab" data-tab="bot" role="tab" aria-selected="false">🤖 Auto-Trader</button>
     </nav>
 
-    <!-- Tab: Mercados -->
     <section id="tab-markets" class="tab-content active">
       <div class="market-toolbar">
         <input type="text" id="market-search" class="search-input" placeholder="Buscar mercados...">
@@ -53,12 +51,8 @@
         <button id="btn-refresh-prices" class="btn btn-refresh" title="Atualizar preços agora">⟳ Atualizar preços</button>
       </div>
       <div id="refresh-indicator" class="refresh-indicator">Carregando...</div>
-      <div id="markets-list" class="markets-list" aria-live="polite">
-        <!-- Cards de mercado renderizados via JS -->
-      </div>
-      <div id="markets-loading" class="markets-skeleton-list" style="display:none;">
-        <!-- Skeleton cards renderizados via JS -->
-      </div>
+      <div id="markets-list" class="markets-list" aria-live="polite"></div>
+      <div id="markets-loading" class="markets-skeleton-list" style="display:none;"></div>
       <div id="markets-empty" class="empty-state" style="display:none;">
         <div class="empty-state-icon">🔍</div>
         <div class="empty-state-title">Nenhum mercado encontrado</div>
@@ -66,33 +60,16 @@
       </div>
     </section>
 
-    <!-- Tab: Portfolio -->
     <section id="tab-portfolio" class="tab-content">
       <div class="portfolio-content">
         <div class="portfolio-stats-top">
-          <div class="stat-card">
-            <span class="stat-label">Posições Abertas</span>
-            <span class="stat-value" id="port-open-positions">0</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">Valor Investido</span>
-            <span class="stat-value" id="port-invested">$0.00</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">Valor Atual</span>
-            <span class="stat-value" id="port-current-value">$0.00</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">P&L Não Realizado</span>
-            <span class="stat-value" id="port-unrealized-pnl">$0.00</span>
-          </div>
-          <div class="stat-card equity">
-            <span class="stat-label">Patrimônio Total</span>
-            <span class="stat-value" id="port-total-equity">$0.00</span>
-          </div>
+          <div class="stat-card"><span class="stat-label">Posições Abertas</span><span class="stat-value" id="port-open-positions">0</span></div>
+          <div class="stat-card"><span class="stat-label">Valor Investido</span><span class="stat-value" id="port-invested">$0.00</span></div>
+          <div class="stat-card"><span class="stat-label">Valor Atual</span><span class="stat-value" id="port-current-value">$0.00</span></div>
+          <div class="stat-card"><span class="stat-label">P&L Não Realizado</span><span class="stat-value" id="port-unrealized-pnl">$0.00</span></div>
+          <div class="stat-card equity"><span class="stat-label">Patrimônio Total</span><span class="stat-value" id="port-total-equity">$0.00</span></div>
         </div>
 
-        <!-- Gráfico de pizza: alocação da carteira (Fase 5) -->
         <div class="portfolio-chart-section" id="port-chart-section">
           <div class="portfolio-chart-wrapper">
             <canvas class="portfolio-chart-canvas" id="port-allocation-canvas" width="280" height="280"></canvas>
@@ -100,9 +77,7 @@
           <div class="portfolio-legend" id="port-allocation-legend"></div>
         </div>
 
-        <div id="positions-list" class="positions-list" aria-live="polite">
-          <!-- Posições renderizadas via JS -->
-        </div>
+        <div id="positions-list" class="positions-list" aria-live="polite"></div>
         <div id="portfolio-empty" class="empty-state" style="display:none;">
           <div class="empty-state-icon">📈</div>
           <div class="empty-state-title">Sem posições abertas</div>
@@ -111,23 +86,15 @@
       </div>
     </section>
 
-    <!-- Tab: Histórico -->
     <section id="tab-history" class="tab-content">
       <div class="history-content">
-        <!-- Estatísticas -->
-        <div class="history-stats-top" id="history-stats-top">
-          <!-- Stat cards renderizadas via JS (trades.js) -->
-        </div>
-
-        <!-- Gráfico de performance (linha de equity) -->
+        <div class="history-stats-top" id="history-stats-top"></div>
         <div class="history-chart-section" id="history-chart-section">
           <h3 class="history-chart-title">Performance da Carteira</h3>
           <div class="history-chart-wrapper">
             <canvas class="history-chart-canvas" id="history-performance-canvas"></canvas>
           </div>
         </div>
-
-        <!-- Toolbar: filtros + exportação CSV -->
         <div class="history-toolbar">
           <div class="history-filters">
             <button class="history-filter-btn active" data-filter="all">Todos</button>
@@ -136,40 +103,29 @@
           </div>
           <button id="btn-export-csv" class="btn btn-csv" title="Exportar trades como CSV">📊 Exportar CSV</button>
         </div>
-
-        <!-- Mensagem vazia -->
         <div id="history-empty" class="empty-state" style="display:none;">
           <div class="empty-state-icon">📋</div>
           <div class="empty-state-title">Nenhuma operação registrada</div>
           <div class="empty-state-desc">Compre shares na aba Mercados para começar a operar. Seu histórico de trades aparecerá aqui.</div>
         </div>
-
-        <!-- Tabela de trades -->
-        <div id="history-table-container" class="history-table-container">
-          <!-- Tabela renderizada via JS (trades.js) -->
-        </div>
+        <div id="history-table-container" class="history-table-container"></div>
       </div>
     </section>
 
-    <!-- Tab: Auto-Trader (Fase 9) -->
     <section id="tab-bot" class="tab-content">
       <div class="bot-content">
-        <!-- Painel de Controle -->
         <div class="bot-control-panel">
           <div class="bot-status-row">
             <div class="bot-status-indicator" id="bot-status-indicator">
               <span class="bot-status-dot" id="bot-status-dot">⚫</span>
               <span class="bot-status-text" id="bot-status-text">Desligado</span>
             </div>
-            <div class="bot-tick-info">
-              <span class="bot-tick-label">Ticks:</span>
-              <span class="bot-tick-value" id="bot-tick-count">0</span>
-            </div>
+            <div class="bot-tick-info"><span class="bot-tick-label">Ticks:</span><span class="bot-tick-value" id="bot-tick-count">0</span></div>
             <button id="btn-bot-toggle" class="btn btn-bot-start">▶ Ligar Bot</button>
+            <button id="btn-bot-emergency" class="btn btn-emergency" title="Interrompe imediatamente o Auto-Trader">⛔ Emergência</button>
           </div>
 
           <div class="bot-config-grid">
-            <!-- Estratégia -->
             <div class="bot-config-item">
               <label class="bot-config-label" for="bot-strategy">Estratégia</label>
               <select id="bot-strategy" class="bot-config-select">
@@ -181,49 +137,20 @@
                 <option value="random">Aleatória</option>
               </select>
             </div>
-
-            <!-- % por trade -->
-            <div class="bot-config-item">
-              <label class="bot-config-label" for="bot-por-trade">% do Saldo por Trade</label>
-              <input type="number" id="bot-por-trade" class="bot-config-input" min="1" max="50" step="1" value="5">
-            </div>
-
-            <!-- Max posições -->
-            <div class="bot-config-item">
-              <label class="bot-config-label" for="bot-max-positions">Máx. Posições Abertas</label>
-              <input type="number" id="bot-max-positions" class="bot-config-input" min="1" max="50" step="1" value="10">
-            </div>
-
-            <!-- Preço mínimo -->
-            <div class="bot-config-item">
-              <label class="bot-config-label" for="bot-min-price">Preço Mínimo (¢)</label>
-              <input type="number" id="bot-min-price" class="bot-config-input" min="1" max="99" step="1" value="5">
-            </div>
-
-            <!-- Preço máximo -->
-            <div class="bot-config-item">
-              <label class="bot-config-label" for="bot-max-price">Preço Máximo (¢)</label>
-              <input type="number" id="bot-max-price" class="bot-config-input" min="1" max="100" step="1" value="75">
-            </div>
-
-            <!-- Take-profit -->
-            <div class="bot-config-item">
-              <label class="bot-config-label" for="bot-profit-target">Take-Profit (%)</label>
-              <input type="number" id="bot-profit-target" class="bot-config-input" min="1" max="200" step="1" value="20">
-            </div>
-
-            <!-- Stop-loss -->
-            <div class="bot-config-item">
-              <label class="bot-config-label" for="bot-stop-loss">Stop-Loss (%)</label>
-              <input type="number" id="bot-stop-loss" class="bot-config-input" min="1" max="100" step="1" value="25">
-            </div>
-
-            <!-- Intervalo -->
-            <div class="bot-config-item">
-              <label class="bot-config-label" for="bot-interval">Intervalo (segundos)</label>
-              <input type="number" id="bot-interval" class="bot-config-input" min="10" max="3600" step="5" value="60">
-            </div>
+            <div class="bot-config-item"><label class="bot-config-label" for="bot-por-trade">% do Saldo por Trade</label><input type="number" id="bot-por-trade" class="bot-config-input" min="1" max="50" step="1" value="5"></div>
+            <div class="bot-config-item"><label class="bot-config-label" for="bot-max-positions">Máx. Posições Abertas</label><input type="number" id="bot-max-positions" class="bot-config-input" min="1" max="50" step="1" value="10"></div>
+            <div class="bot-config-item"><label class="bot-config-label" for="bot-min-price">Preço Mínimo (¢)</label><input type="number" id="bot-min-price" class="bot-config-input" min="1" max="99" step="1" value="5"></div>
+            <div class="bot-config-item"><label class="bot-config-label" for="bot-max-price">Preço Máximo (¢)</label><input type="number" id="bot-max-price" class="bot-config-input" min="1" max="100" step="1" value="75"></div>
+            <div class="bot-config-item"><label class="bot-config-label" for="bot-profit-target">Take-Profit (%)</label><input type="number" id="bot-profit-target" class="bot-config-input" min="1" max="200" step="1" value="20"></div>
+            <div class="bot-config-item"><label class="bot-config-label" for="bot-stop-loss">Stop-Loss (%)</label><input type="number" id="bot-stop-loss" class="bot-config-input" min="1" max="100" step="1" value="25"></div>
+            <div class="bot-config-item"><label class="bot-config-label" for="bot-interval">Intervalo (segundos)</label><input type="number" id="bot-interval" class="bot-config-input" min="10" max="3600" step="5" value="60"></div>
+            <div class="bot-config-item risk"><label class="bot-config-label" for="bot-max-daily-loss">Perda Máx. Diária (%)</label><input type="number" id="bot-max-daily-loss" class="bot-config-input" min="0.5" max="50" step="0.5" value="5"></div>
+            <div class="bot-config-item risk"><label class="bot-config-label" for="bot-max-market-exposure">Exposição Máx. por Mercado (%)</label><input type="number" id="bot-max-market-exposure" class="bot-config-input" min="1" max="100" step="1" value="15"></div>
+            <div class="bot-config-item risk"><label class="bot-config-label" for="bot-max-position">Tamanho Máx. da Posição (%)</label><input type="number" id="bot-max-position" class="bot-config-input" min="1" max="100" step="1" value="10"></div>
+            <div class="bot-config-item risk"><label class="bot-config-label" for="bot-cooldown-loss">Cooldown após Perda (min)</label><input type="number" id="bot-cooldown-loss" class="bot-config-input" min="0" max="1440" step="1" value="10"></div>
           </div>
+
+          <p class="bot-risk-note">Os limites de risco protegem apenas o Auto-Trader da simulação; operações manuais continuam disponíveis.</p>
 
           <div class="bot-actions-row">
             <button id="btn-bot-save-config" class="btn btn-bot-save">💾 Salvar Config</button>
@@ -232,17 +159,10 @@
           </div>
         </div>
 
-        <!-- Estatísticas do bot -->
-        <div class="bot-stats-top" id="bot-stats-top">
-          <!-- Stat cards renderizadas via JS -->
-        </div>
-
-        <!-- Log de ações -->
+        <div class="bot-stats-top" id="bot-stats-top"></div>
         <div class="bot-log-section">
           <h3 class="bot-log-title">📝 Log de Ações do Bot</h3>
-          <div id="bot-log-container" class="bot-log-container">
-            <!-- Log entries renderizadas via JS -->
-          </div>
+          <div id="bot-log-container" class="bot-log-container"></div>
           <div id="bot-log-empty" class="empty-state" style="display:none;">
             <div class="empty-state-icon">🤖</div>
             <div class="empty-state-title">Nenhuma ação registrada</div>
@@ -252,99 +172,47 @@
       </div>
     </section>
 
-    <!-- Modal de Reset -->
     <div id="modal-reset" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modal-reset-title">
       <div class="modal">
         <h3 id="modal-reset-title">Reiniciar Carteira</h3>
         <p>Tem certeza? Isso apaga todas as posições, trades e reseta o saldo para $1,000.00.</p>
-        <div class="modal-actions">
-          <button class="btn btn-cancel" id="reset-cancel">Cancelar</button>
-          <button class="btn btn-danger" id="reset-confirm">Sim, Reiniciar</button>
-        </div>
+        <div class="modal-actions"><button class="btn btn-cancel" id="reset-cancel">Cancelar</button><button class="btn btn-danger" id="reset-confirm">Sim, Reiniciar</button></div>
       </div>
     </div>
 
-    <!-- Modal de Compra -->
     <div id="modal-buy" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true">
       <div class="modal trade-modal">
         <h3>Comprar Shares</h3>
-        <div class="trade-modal-header">
-          <p class="trade-market-question" id="buy-market-question">—</p>
-          <span class="trade-position-tag" id="buy-position-tag" style="display:none;"></span>
-        </div>
+        <div class="trade-modal-header"><p class="trade-market-question" id="buy-market-question">—</p><span class="trade-position-tag" id="buy-position-tag" style="display:none;"></span></div>
         <div class="trade-form">
-          <div class="trade-form-row">
-            <label class="trade-label">Outcome</label>
-            <span class="trade-outcome-display" id="buy-outcome-display">—</span>
-          </div>
-          <div class="trade-form-row">
-            <label class="trade-label">Preço</label>
-            <span class="trade-price-display" id="buy-price-display">—</span>
-          </div>
-          <div class="trade-form-row">
-            <label class="trade-label" for="buy-shares-input">Quantidade</label>
-            <input type="number" id="buy-shares-input" class="trade-input" min="1" step="1" value="10">
-          </div>
-          <div class="trade-form-row">
-            <label class="trade-label">Custo Total</label>
-            <span class="trade-cost-display" id="buy-cost-display">$0.00</span>
-          </div>
-          <div class="trade-form-row">
-            <label class="trade-label">Saldo Após</label>
-            <span class="trade-balance-after" id="buy-balance-after">—</span>
-          </div>
+          <div class="trade-form-row"><label class="trade-label">Outcome</label><span class="trade-outcome-display" id="buy-outcome-display">—</span></div>
+          <div class="trade-form-row"><label class="trade-label">Preço</label><span class="trade-price-display" id="buy-price-display">—</span></div>
+          <div class="trade-form-row"><label class="trade-label" for="buy-shares-input">Quantidade</label><input type="number" id="buy-shares-input" class="trade-input" min="1" step="1" value="10"></div>
+          <div class="trade-form-row"><label class="trade-label">Custo Total</label><span class="trade-cost-display" id="buy-cost-display">$0.00</span></div>
+          <div class="trade-form-row"><label class="trade-label">Saldo Após</label><span class="trade-balance-after" id="buy-balance-after">—</span></div>
         </div>
         <p class="trade-warning" id="buy-warning" style="display:none;"></p>
-        <div class="modal-actions">
-          <button class="btn btn-cancel" id="buy-cancel">Cancelar</button>
-          <button class="btn btn-buy" id="buy-confirm">Comprar</button>
-        </div>
+        <div class="modal-actions"><button class="btn btn-cancel" id="buy-cancel">Cancelar</button><button class="btn btn-buy" id="buy-confirm">Comprar</button></div>
       </div>
     </div>
 
-    <!-- Modal de Venda -->
     <div id="modal-sell" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true">
       <div class="modal trade-modal">
         <h3>Vender Shares</h3>
-        <div class="trade-modal-header">
-          <p class="trade-market-question" id="sell-market-question">—</p>
-          <span class="trade-position-tag" id="sell-position-tag">—</span>
-        </div>
+        <div class="trade-modal-header"><p class="trade-market-question" id="sell-market-question">—</p><span class="trade-position-tag" id="sell-position-tag">—</span></div>
         <div class="trade-form">
-          <div class="trade-form-row">
-            <label class="trade-label">Outcome</label>
-            <span class="trade-outcome-display" id="sell-outcome-display">—</span>
-          </div>
-          <div class="trade-form-row">
-            <label class="trade-label">Preço Atual</label>
-            <span class="trade-price-display" id="sell-price-display">—</span>
-          </div>
-          <div class="trade-form-row">
-            <label class="trade-label" for="sell-shares-input">Quantidade</label>
-            <input type="number" id="sell-shares-input" class="trade-input" min="1" step="1" value="1">
-          </div>
-          <div class="trade-form-row">
-            <label class="trade-label">Preço Médio</label>
-            <span class="trade-avg-price" id="sell-avg-price">—</span>
-          </div>
-          <div class="trade-form-row">
-            <label class="trade-label">Retorno</label>
-            <span class="trade-cost-display" id="sell-return-display">$0.00</span>
-          </div>
-          <div class="trade-form-row">
-            <label class="trade-label">P&L da Venda</label>
-            <span class="trade-pnl-sell" id="sell-pnl-display">—</span>
-          </div>
+          <div class="trade-form-row"><label class="trade-label">Outcome</label><span class="trade-outcome-display" id="sell-outcome-display">—</span></div>
+          <div class="trade-form-row"><label class="trade-label">Preço Atual</label><span class="trade-price-display" id="sell-price-display">—</span></div>
+          <div class="trade-form-row"><label class="trade-label" for="sell-shares-input">Quantidade</label><input type="number" id="sell-shares-input" class="trade-input" min="1" step="1" value="1"></div>
+          <div class="trade-form-row"><label class="trade-label">Preço Médio</label><span class="trade-avg-price" id="sell-avg-price">—</span></div>
+          <div class="trade-form-row"><label class="trade-label">Retorno</label><span class="trade-cost-display" id="sell-return-display">$0.00</span></div>
+          <div class="trade-form-row"><label class="trade-label">P&L da Venda</label><span class="trade-pnl-sell" id="sell-pnl-display">—</span></div>
         </div>
         <p class="trade-warning" id="sell-warning" style="display:none;"></p>
-        <div class="modal-actions">
-          <button class="btn btn-cancel" id="sell-cancel">Cancelar</button>
-          <button class="btn btn-sell" id="sell-confirm">Vender</button>
-        </div>
+        <div class="modal-actions"><button class="btn btn-cancel" id="sell-cancel">Cancelar</button><button class="btn btn-sell" id="sell-confirm">Vender</button></div>
       </div>
     </div>
 
-    <!-- Toast -->
     <div id="toast" class="toast" style="display:none;"></div>
   </div>
 
