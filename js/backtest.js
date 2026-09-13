@@ -572,7 +572,8 @@ function simulate(dataset, config, tradeStartIndex) {
     }
 
     const hasStopLoss = exits.some(order => order.reason === 'stop-loss');
-    const entry = hasStopLoss ? null : plannedEntryOrder(state, current, config, history, rng);
+    const finalSignalBar = i === dataset.length - 2;
+    const entry = (hasStopLoss || randomSell || finalSignalBar) ? null : plannedEntryOrder(state, current, config, history, rng);
     if (hasStopLoss) state.riskSkips++;
 
     for (const order of exits) executeSell(state, order, next, config);
@@ -626,6 +627,7 @@ export function runBacktest(inputDataset, inputConfig = {}) {
       feeBps: config.feeBps,
       slippageBps: config.slippageBps,
       forcedLiquidationAtEnd: true,
+      noEntriesOnFinalFillBar: true,
       orderBookDepthModeled: false,
       validationStartsFlat: true,
       preValidationBarsUsedOnlyForSignalWarmup: true,
