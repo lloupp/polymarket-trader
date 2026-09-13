@@ -114,13 +114,13 @@ function injectUI() {
       </div>
 
       <div class="backtest-warning">
-        <strong>Limite metodológico:</strong> a API histórica fornece preços, não profundidade histórica completa do order book. Slippage e taxas são hipóteses configuráveis; resultados não representam garantia de execução real.
+        <strong>Limites metodológicos:</strong> a API histórica fornece preços, não profundidade histórica completa do order book. Slippage e taxas são hipóteses configuráveis. O universo histórico é reconstruído do índice Gamma disponível hoje, portanto reduz mas não elimina viés de sobrevivência. Resultados não representam garantia de execução real.
       </div>
 
       <div class="backtest-config-grid">
         <label>Universo
           <select id="bt-universe">
-            <option value="historical" selected>Histórico sem amostra dos mercados atuais</option>
+            <option value="historical" selected>Histórico: mercados sobrepostos à janela (Gamma)</option>
             <option value="current">Mercados carregados hoje</option>
           </select>
         </label>
@@ -281,14 +281,17 @@ function renderResult(result, historical, comparison) {
     <div class="bt-audit-grid">
       <span>✓ Sinal usa apenas presente/passado</span>
       <span>✓ Execução atrasada em 1 barra</span>
+      <span>✓ Sem entrada na última barra executável</span>
       <span>✓ Validação OOS começa flat</span>
       <span>✓ Warmup pré-OOS não altera capital</span>
       <span>✓ Seed reproduzível (${esc(result.config.seed)})</span>
+      <span>✓ Forward-fill limitado a ${esc(historical.maxForwardFillBuckets ?? 3)} barras</span>
       <span>✓ Liquidação final explícita</span>
       <span>Fee: ${esc(result.config.feeBps)} bps</span>
       <span>Slippage: ${esc(result.config.slippageBps)} bps</span>
       <span class="bt-limit">⚠ Profundidade histórica do order book não modelada</span>
       <span class="bt-limit">⚠ Custos são hipóteses do usuário, não fee histórico reconstruído</span>
+      <span class="bt-limit">⚠ O índice Gamma disponível hoje pode omitir mercados históricos removidos/desindexados</span>
     </div>`;
 }
 
