@@ -2,7 +2,7 @@ name: Quality Gate
 
 on:
   push:
-    branches: [master, gauntlet-9-10]
+    branches: [master, gauntlet-9-10, gauntlet-10-10]
   pull_request:
     branches: [master]
 
@@ -17,5 +17,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm run check
-      - run: npm test
+      - name: Install test dependencies
+        run: npm install --no-audit --no-fund
+      - name: Syntax check
+        run: npm run check
+      - name: Unit and regression tests
+        run: npm test
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser E2E
+        run: npm run test:e2e
