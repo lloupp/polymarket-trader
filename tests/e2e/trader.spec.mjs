@@ -65,9 +65,11 @@ test('compra, venda, refresh, histórico e parada de emergência', async ({ page
   await expect(page.locator('#bot-max-market-exposure')).toBeVisible();
   await expect(page.locator('#btn-bot-emergency')).toBeVisible();
   await page.locator('#bot-max-position').fill('7');
+  await page.locator('#bot-cooldown-loss').fill('0');
   await page.locator('#btn-bot-save-config').click();
   const savedConfig = await page.evaluate(() => JSON.parse(localStorage.getItem('pm_bot_config') || '{}'));
   expect(savedConfig.maxPositionPct).toBe(7);
+  expect(savedConfig.cooldownAfterLossMin).toBe(0);
 
   await page.locator('#btn-bot-toggle').click();
   await expect(page.locator('#bot-status-text')).toHaveText('Rodando...');
