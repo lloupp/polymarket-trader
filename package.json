@@ -5,7 +5,7 @@
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "test:e2e": "playwright test",
-    "check": "node --check js/api.js && node --check js/app.js && node --check js/bot.js && node --check js/market-history.js && node --check js/portfolio.js && node --check js/trades.js && node --check js/utils.js && node --check js/wallet.js"
+    "check": "node --check js/api.js && node --check js/app.js && node --check js/backtest.js && node --check js/backtest-data.js && node --check js/backtest-ui.js && node --check js/bot.js && node --check js/market-history.js && node --check js/portfolio.js && node --check js/trades.js && node --check js/utils.js && node --check js/wallet.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0"
