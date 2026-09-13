@@ -1,0 +1,103 @@
+/* Gauntlet 10/10 — gráficos de mercado e guardrails do Auto-Trader */
+
+.market-sparkline-wrap {
+  position: relative;
+  min-height: 78px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  padding: 6px 8px 18px;
+}
+
+.market-sparkline {
+  display: block;
+  width: 100%;
+  height: 56px;
+}
+
+.market-chart-legend {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 4px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.market-chart-legend .yes { color: var(--green); }
+.market-chart-legend .no { color: var(--red); }
+
+.refresh-indicator .ri-history {
+  margin-left: auto;
+  color: var(--text-secondary);
+  opacity: 0.75;
+}
+
+.bot-config-item.risk {
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.bot-risk-note {
+  margin: -4px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.btn-emergency {
+  color: #fff;
+  background: rgba(239, 68, 68, 0.88);
+  border-color: var(--red);
+  font-weight: 800;
+}
+
+.btn-emergency:hover {
+  background: var(--red);
+}
+
+.bot-stats-top .stat-card {
+  flex: 1;
+  min-width: 145px;
+  padding: 14px 16px;
+}
+
+.bot-stats-top .risk-card {
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+.bot-log-badge.risk {
+  background: rgba(245, 158, 11, 0.16);
+  color: var(--accent);
+}
+
+@media (max-width: 600px) {
+  .refresh-indicator {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .refresh-indicator .ri-history {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .market-sparkline-wrap {
+    min-height: 72px;
+  }
+
+  .market-sparkline {
+    height: 50px;
+  }
+
+  .btn-emergency {
+    width: 100%;
+    justify-content: center;
+  }
+}
